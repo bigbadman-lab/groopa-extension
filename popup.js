@@ -13,7 +13,7 @@ const visiblePostCandidatesEl = document.getElementById('visible-post-candidates
 const openSettingsBtn = document.getElementById('open-settings');
 const inboxListEl = document.getElementById('inbox-list');
 const leadDetailViewEl = document.getElementById('lead-detail-view');
-const leadDetailBack = document.getElementById('lead-detail-back');
+const detectionDetailBack = document.getElementById('lead-detail-back');
 const leadDetailGroup = document.getElementById('lead-detail-group');
 const leadDetailTime = document.getElementById('lead-detail-time');
 const leadDetailText = document.getElementById('lead-detail-text');
@@ -310,8 +310,8 @@ function showInboxList() {
   loadAndRender();
 }
 
-if (leadDetailBack) {
-  leadDetailBack.addEventListener('click', (e) => {
+if (detectionDetailBack) {
+  detectionDetailBack.addEventListener('click', (e) => {
     e.preventDefault();
     showInboxList();
   });
