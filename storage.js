@@ -4,7 +4,7 @@
 const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled'];
 
 // Local: larger operational data (no strict quota per item)
-const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates'];
+const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -16,6 +16,7 @@ const DEFAULTS = {
   activityLog: [],
   lastFacebookContext: null,
   pagePostCandidates: [],
+  groupLastScannedAt: {},
 };
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
@@ -77,6 +78,7 @@ async function getSettings() {
     activityLog: Array.isArray(rawLocal.activityLog) ? rawLocal.activityLog : DEFAULTS.activityLog,
     lastFacebookContext: rawLocal.lastFacebookContext != null ? rawLocal.lastFacebookContext : DEFAULTS.lastFacebookContext,
     pagePostCandidates: Array.isArray(rawLocal.pagePostCandidates) ? rawLocal.pagePostCandidates : DEFAULTS.pagePostCandidates,
+    groupLastScannedAt: rawLocal.groupLastScannedAt != null && typeof rawLocal.groupLastScannedAt === 'object' ? rawLocal.groupLastScannedAt : DEFAULTS.groupLastScannedAt,
   };
 }
 
@@ -171,16 +173,18 @@ const MAX_DETECTIONS_STORED = 100;
 /**
  * Append new detections, dedupe by fingerprint, keep list under MAX_DETECTIONS_STORED.
  * @param {object[]} newDetections - each must have .fingerprint
+ * @returns {Promise<object[]>} the detections that were actually added (new)
  */
 async function appendDetectionsIfNew(newDetections) {
-  if (!Array.isArray(newDetections) || newDetections.length === 0) return;
+  if (!Array.isArray(newDetections) || newDetections.length === 0) return [];
   const existing = await getDetections();
   const seen = new Set(existing.map((d) => d.fingerprint).filter(Boolean));
   const toAdd = newDetections.filter((d) => d.fingerprint && !seen.has(d.fingerprint));
-  if (toAdd.length === 0) return;
+  if (toAdd.length === 0) return [];
   const combined = [...existing, ...toAdd];
   const trimmed = combined.slice(-MAX_DETECTIONS_STORED);
   await saveDetections(trimmed);
+  return toAdd;
 }
 
 /**
@@ -399,4 +403,25 @@ async function getPagePostCandidates() {
  */
 async function savePagePostCandidates(pagePostCandidates) {
   await setInStorageLocal({ pagePostCandidates: Array.isArray(pagePostCandidates) ? pagePostCandidates : [] });
+}
+
+/**
+ * Get last scan timestamps per group (key -> ISO date string).
+ * @returns {Promise<object>}
+ */
+async function getGroupLastScannedAt() {
+  const raw = await getFromStorageLocal(['groupLastScannedAt']);
+  return raw.groupLastScannedAt != null && typeof raw.groupLastScannedAt === 'object' ? raw.groupLastScannedAt : {};
+}
+
+/**
+ * Set last scanned time for a group (e.g. group id or normalized key).
+ * @param {string} groupKey - stable key (id, slug, or normalized identifier)
+ * @param {string} isoDateString - e.g. new Date().toISOString()
+ */
+async function setGroupLastScannedAt(groupKey, isoDateString) {
+  if (!groupKey || !isoDateString) return;
+  const current = await getGroupLastScannedAt();
+  const next = { ...current, [String(groupKey).toLowerCase()]: isoDateString };
+  await setInStorageLocal({ groupLastScannedAt: next });
 }

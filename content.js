@@ -203,6 +203,14 @@
     }
   }
 
+  chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+    if (message && message.type === 'RUN_GROUP_SCAN') {
+      runPostCandidateScan('heartbeat');
+      sendResponse({ ok: true });
+    }
+    return false;
+  });
+
   // Run scheduled scans; each sends PAGE_POST_CANDIDATES_DETECTED (background dedupes detections)
   RETRY_DELAYS_MS.forEach(function (delayMs, index) {
     setTimeout(function () {

@@ -52,15 +52,87 @@ function isCurrentGroupTracked(context, trackedGroups) {
   return false;
 }
 
+/**
+ * Returns true if tabUrl is a Facebook group page that matches one of the tracked groups.
+ * Used by the heartbeat to find tabs to send RUN_GROUP_SCAN to.
+ */
+function tabUrlMatchesTrackedGroup(tabUrl, trackedGroups) {
+  if (!tabUrl || typeof tabUrl !== 'string' || !Array.isArray(trackedGroups) || trackedGroups.length === 0) return false;
+  if (tabUrl.indexOf('facebook.com') === -1 || tabUrl.indexOf('/groups/') === -1) return false;
+  const slug = getSlugFromGroupUrl(tabUrl);
+  if (!slug) return false;
+  const slugLower = slug.toLowerCase();
+  const tabNorm = normalizeFacebookGroupUrl(tabUrl);
+  for (let i = 0; i < trackedGroups.length; i++) {
+    const t = trackedGroups[i];
+    const trackedId = (t.id != null && String(t.id).trim()) ? String(t.id).trim().toLowerCase() : '';
+    const trackedSlug = (t.slug != null && String(t.slug).trim()) ? String(t.slug).trim().toLowerCase() : getSlugFromGroupUrl(t.url || '').toLowerCase();
+    const trackedNormalized = normalizeFacebookGroupUrl(t.url || '');
+    if (trackedId && trackedId === slugLower) return true;
+    if (trackedSlug && trackedSlug === slugLower) return true;
+    if (trackedNormalized && tabNorm && trackedNormalized === tabNorm) return true;
+  }
+  return false;
+}
+
+const SCAN_HEARTBEAT_ALARM_NAME = 'groopa-scan-heartbeat';
+const SCAN_HEARTBEAT_INTERVAL_MINUTES = 0.5; // 30 seconds (one-shot reschedule; Chrome min period is 1 min)
+
+function scheduleScanHeartbeat() {
+  chrome.alarms.create(SCAN_HEARTBEAT_ALARM_NAME, { delayInMinutes: SCAN_HEARTBEAT_INTERVAL_MINUTES });
+}
+
+async function runHeartbeatScan() {
+  try {
+    const trackedGroups = await getTrackedGroups();
+    if (trackedGroups.length === 0) return;
+
+    const tabs = await new Promise((resolve) => {
+      chrome.tabs.query({ url: 'https://*.facebook.com/*' }, resolve);
+    });
+    if (!tabs || tabs.length === 0) return;
+
+    for (let i = 0; i < tabs.length; i++) {
+      const tab = tabs[i];
+      if (!tab.id || !tab.url) continue;
+      if (!tabUrlMatchesTrackedGroup(tab.url, trackedGroups)) continue;
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'RUN_GROUP_SCAN' });
+      } catch (e) {
+        // Tab may be unloaded or content script not ready
+        if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
+          console.warn('[Groopa] Heartbeat send to tab', tab.id, e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Groopa] runHeartbeatScan error', err);
+  } finally {
+    scheduleScanHeartbeat();
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Groopa] Extension installed');
   migrateOperationalKeysFromSyncToLocal().then(() => {
     console.log('[Groopa] Migration: operational data now in local storage');
   });
+  scheduleScanHeartbeat();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[Groopa] Extension started');
+  scheduleScanHeartbeat();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm && alarm.name === SCAN_HEARTBEAT_ALARM_NAME) {
+    runHeartbeatScan();
+  }
+});
+
+chrome.notifications.onClicked.addListener(() => {
+  chrome.runtime.openOptionsPage();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -206,8 +278,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
         }
 
+        let added = [];
         if (newDetections.length > 0) {
-          await appendDetectionsIfNew(newDetections);
+          added = await appendDetectionsIfNew(newDetections);
+          const groupKey = (groupIdentifier && String(groupIdentifier).trim()) ? String(groupIdentifier).trim().toLowerCase() : getSlugFromGroupUrl(pageUrl || '').toLowerCase();
+          if (groupKey) {
+            await setGroupLastScannedAt(groupKey, now);
+          }
+        }
+
+        if (added.length > 0 && settings.soundEnabled !== false) {
+          for (let a = 0; a < added.length; a++) {
+            const d = added[a];
+            const title = 'New Groopa lead detected';
+            const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
+            const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
+            const message = preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
+            try {
+              chrome.notifications.create('groopa-lead-' + (d.fingerprint || a) + '-' + Date.now(), {
+                type: 'basic',
+                title,
+                message,
+              });
+            } catch (notifErr) {
+              console.warn('[Groopa] Notification create failed', notifErr);
+            }
+          }
         }
         sendResponse({ ok: true });
       } catch (err) {
