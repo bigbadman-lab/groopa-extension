@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Groopa",
+  "version": "0.1.0",
+  "description": "Monitor your paid Facebook groups. Get notified and stay on top of new posts and activity.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://*.facebook.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://*.facebook.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
