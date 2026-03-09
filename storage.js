@@ -1,6 +1,10 @@
-// Groopa storage service — shared helpers for chrome.storage.sync
+// Groopa storage service — sync for settings, local for operational data
 
-const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detectedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates'];
+// Sync: small settings only (fits quota)
+const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled'];
+
+// Local: larger operational data (no strict quota per item)
+const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -16,40 +20,69 @@ const DEFAULTS = {
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
 
-function getFromStorage(keys) {
+function getFromStorageSync(keys) {
   return new Promise((resolve) => {
     chrome.storage.sync.get(keys, resolve);
   });
 }
 
-function setInStorage(items) {
+function setInStorageSync(items) {
   return new Promise((resolve) => {
     chrome.storage.sync.set(items, resolve);
   });
 }
 
+function getFromStorageLocal(keys) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(keys, resolve);
+  });
+}
+
+function setInStorageLocal(items) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(items, resolve);
+  });
+}
+
 /**
- * Get all settings with normalized defaults.
- * @returns {Promise<{ isPaidUser: boolean, keywords: string[], soundEnabled: boolean, trackedGroups: object[], detections: object[] }>}
+ * One-time migration: copy operational data from sync to local, then remove from sync (fixes quota).
+ * Call from background onInstalled so existing data is preserved.
+ */
+async function migrateOperationalKeysFromSyncToLocal() {
+  const raw = await getFromStorageSync(LOCAL_KEYS);
+  const hasAny = LOCAL_KEYS.some((k) => raw[k] !== undefined);
+  if (hasAny) {
+    await setInStorageLocal(raw);
+  }
+  return new Promise((resolve) => {
+    chrome.storage.sync.remove(LOCAL_KEYS, resolve);
+  });
+}
+
+/**
+ * Get all settings with normalized defaults (reads from sync + local).
  */
 async function getSettings() {
-  const raw = await getFromStorage(STORAGE_KEYS);
+  const [rawSync, rawLocal] = await Promise.all([
+    getFromStorageSync(SYNC_KEYS),
+    getFromStorageLocal(LOCAL_KEYS),
+  ]);
   return {
-    isPaidUser: raw.isPaidUser === true,
-    keywords: Array.isArray(raw.keywords) ? raw.keywords : DEFAULTS.keywords,
-    soundEnabled: raw.soundEnabled !== false,
-    trackedGroups: Array.isArray(raw.trackedGroups) ? raw.trackedGroups : DEFAULTS.trackedGroups,
-    detectedGroups: Array.isArray(raw.detectedGroups) ? raw.detectedGroups : DEFAULTS.detectedGroups,
-    detections: Array.isArray(raw.detections) ? raw.detections : DEFAULTS.detections,
-    activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : DEFAULTS.activityLog,
-    lastFacebookContext: raw.lastFacebookContext != null ? raw.lastFacebookContext : DEFAULTS.lastFacebookContext,
-    pagePostCandidates: Array.isArray(raw.pagePostCandidates) ? raw.pagePostCandidates : DEFAULTS.pagePostCandidates,
+    isPaidUser: rawSync.isPaidUser === true,
+    keywords: Array.isArray(rawSync.keywords) ? rawSync.keywords : DEFAULTS.keywords,
+    soundEnabled: rawSync.soundEnabled !== false,
+    trackedGroups: Array.isArray(rawLocal.trackedGroups) ? rawLocal.trackedGroups : DEFAULTS.trackedGroups,
+    detectedGroups: Array.isArray(rawLocal.detectedGroups) ? rawLocal.detectedGroups : DEFAULTS.detectedGroups,
+    detections: Array.isArray(rawLocal.detections) ? rawLocal.detections : DEFAULTS.detections,
+    activityLog: Array.isArray(rawLocal.activityLog) ? rawLocal.activityLog : DEFAULTS.activityLog,
+    lastFacebookContext: rawLocal.lastFacebookContext != null ? rawLocal.lastFacebookContext : DEFAULTS.lastFacebookContext,
+    pagePostCandidates: Array.isArray(rawLocal.pagePostCandidates) ? rawLocal.pagePostCandidates : DEFAULTS.pagePostCandidates,
   };
 }
 
 /**
- * Save settings. Merges with existing so you can pass only the keys you change.
- * @param {object} data - { isPaidUser?, keywords?, soundEnabled?, trackedGroups? }
+ * Save settings. Only sync keys (isPaidUser, keywords, soundEnabled) are written to sync.
+ * trackedGroups is not saved here — use saveTrackedGroups() after updating tracked list.
  */
 async function saveSettings(data) {
   const current = await getSettings();
@@ -57,16 +90,15 @@ async function saveSettings(data) {
     isPaidUser: data.isPaidUser !== undefined ? data.isPaidUser : current.isPaidUser,
     keywords: data.keywords !== undefined ? data.keywords : current.keywords,
     soundEnabled: data.soundEnabled !== undefined ? data.soundEnabled : current.soundEnabled,
-    trackedGroups: data.trackedGroups !== undefined ? data.trackedGroups : current.trackedGroups,
   };
-  await setInStorage(merged);
+  await setInStorageSync(merged);
 }
 
 /**
  * @returns {Promise<object[]>}
  */
 async function getTrackedGroups() {
-  const raw = await getFromStorage(['trackedGroups']);
+  const raw = await getFromStorageLocal(['trackedGroups']);
   return Array.isArray(raw.trackedGroups) ? raw.trackedGroups : [];
 }
 
@@ -74,14 +106,14 @@ async function getTrackedGroups() {
  * @param {object[]} trackedGroups
  */
 async function saveTrackedGroups(trackedGroups) {
-  await setInStorage({ trackedGroups: Array.isArray(trackedGroups) ? trackedGroups : [] });
+  await setInStorageLocal({ trackedGroups: Array.isArray(trackedGroups) ? trackedGroups : [] });
 }
 
 /**
  * @returns {Promise<object[]>}
  */
 async function getDetections() {
-  const raw = await getFromStorage(['detections']);
+  const raw = await getFromStorageLocal(['detections']);
   return Array.isArray(raw.detections) ? raw.detections : [];
 }
 
@@ -89,14 +121,31 @@ async function getDetections() {
  * @param {object[]} detections
  */
 async function saveDetections(detections) {
-  await setInStorage({ detections: Array.isArray(detections) ? detections : [] });
+  await setInStorageLocal({ detections: Array.isArray(detections) ? detections : [] });
+}
+
+const MAX_DETECTIONS_STORED = 100;
+
+/**
+ * Append new detections, dedupe by fingerprint, keep list under MAX_DETECTIONS_STORED.
+ * @param {object[]} newDetections - each must have .fingerprint
+ */
+async function appendDetectionsIfNew(newDetections) {
+  if (!Array.isArray(newDetections) || newDetections.length === 0) return;
+  const existing = await getDetections();
+  const seen = new Set(existing.map((d) => d.fingerprint).filter(Boolean));
+  const toAdd = newDetections.filter((d) => d.fingerprint && !seen.has(d.fingerprint));
+  if (toAdd.length === 0) return;
+  const combined = [...existing, ...toAdd];
+  const trimmed = combined.slice(-MAX_DETECTIONS_STORED);
+  await saveDetections(trimmed);
 }
 
 /**
  * @returns {Promise<object[]>}
  */
 async function getDetectedGroups() {
-  const raw = await getFromStorage(['detectedGroups']);
+  const raw = await getFromStorageLocal(['detectedGroups']);
   return Array.isArray(raw.detectedGroups) ? raw.detectedGroups : [];
 }
 
@@ -104,7 +153,7 @@ async function getDetectedGroups() {
  * @param {object[]} detectedGroups
  */
 async function saveDetectedGroups(detectedGroups) {
-  await setInStorage({ detectedGroups: Array.isArray(detectedGroups) ? detectedGroups : [] });
+  await setInStorageLocal({ detectedGroups: Array.isArray(detectedGroups) ? detectedGroups : [] });
 }
 
 const UNKNOWN_GROUP_NAME = 'Unknown group';
@@ -234,17 +283,17 @@ async function upsertDetectedGroup(group) {
 }
 
 /**
- * Clear tracked groups, detected groups, and detections (demo data reset).
+ * Clear tracked groups, detected groups, and detections (demo data reset). Uses local storage.
  */
 async function clearDemoData() {
-  await setInStorage({ trackedGroups: [], detectedGroups: [], detections: [] });
+  await setInStorageLocal({ trackedGroups: [], detectedGroups: [], detections: [] });
 }
 
 /**
  * @returns {Promise<object[]>}
  */
 async function getActivityLog() {
-  const raw = await getFromStorage(['activityLog']);
+  const raw = await getFromStorageLocal(['activityLog']);
   return Array.isArray(raw.activityLog) ? raw.activityLog : [];
 }
 
@@ -252,7 +301,7 @@ async function getActivityLog() {
  * @param {object[]} activityLog
  */
 async function saveActivityLog(activityLog) {
-  await setInStorage({ activityLog: Array.isArray(activityLog) ? activityLog : [] });
+  await setInStorageLocal({ activityLog: Array.isArray(activityLog) ? activityLog : [] });
 }
 
 /**
@@ -270,7 +319,7 @@ async function addActivityLogEntry(entry) {
  * @returns {Promise<object|null>} Last detected Facebook context or null
  */
 async function getLastFacebookContext() {
-  const raw = await getFromStorage(['lastFacebookContext']);
+  const raw = await getFromStorageLocal(['lastFacebookContext']);
   return raw.lastFacebookContext != null ? raw.lastFacebookContext : null;
 }
 
@@ -278,14 +327,14 @@ async function getLastFacebookContext() {
  * @param {object|null} lastFacebookContext
  */
 async function saveLastFacebookContext(lastFacebookContext) {
-  await setInStorage({ lastFacebookContext: lastFacebookContext != null ? lastFacebookContext : null });
+  await setInStorageLocal({ lastFacebookContext: lastFacebookContext != null ? lastFacebookContext : null });
 }
 
 /**
  * @returns {Promise<object[]>} Page post candidates (e.g. [{ textPreview }])
  */
 async function getPagePostCandidates() {
-  const raw = await getFromStorage(['pagePostCandidates']);
+  const raw = await getFromStorageLocal(['pagePostCandidates']);
   return Array.isArray(raw.pagePostCandidates) ? raw.pagePostCandidates : [];
 }
 
@@ -293,5 +342,5 @@ async function getPagePostCandidates() {
  * @param {object[]} pagePostCandidates
  */
 async function savePagePostCandidates(pagePostCandidates) {
-  await setInStorage({ pagePostCandidates: Array.isArray(pagePostCandidates) ? pagePostCandidates : [] });
+  await setInStorageLocal({ pagePostCandidates: Array.isArray(pagePostCandidates) ? pagePostCandidates : [] });
 }

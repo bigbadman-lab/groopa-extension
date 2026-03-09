@@ -180,21 +180,24 @@ async function loadAndRender() {
       .join('');
   }
 
-  // Recent detections list
+  // Recent detections list (real stored detections: demo or keyword-match from page scan)
   if (detectionsList.length === 0) {
     recentDetectionsEl.className = 'placeholder-content';
     recentDetectionsEl.innerHTML = '<p class="placeholder-text">No detections yet.</p>';
   } else {
     recentDetectionsEl.className = 'list-content';
     recentDetectionsEl.innerHTML = detectionsList
-      .map(
-        (d) =>
-          `<div class="list-item detection-item">
-            <div class="detection-meta">${escapeHtml(d.groupName || '')} · ${escapeHtml(d.author || '')} · ${formatDate(d.createdAt)}</div>
-            <div class="detection-text">${escapeHtml(d.text || '')}</div>
-            <div class="detection-keyword">Keyword: ${escapeHtml(d.keywordMatched || '')}</div>
-          </div>`
-      )
+      .map((d) => {
+        const groupLabel = d.groupName || d.groupIdentifier || 'Group';
+        const author = d.author != null ? d.author : '';
+        const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+        const keywordLabel = d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : '');
+        return `<div class="list-item detection-item">
+            <div class="detection-meta">${escapeHtml(groupLabel)}${author ? ' · ' + escapeHtml(author) : ''} · ${formatDate(d.createdAt)}</div>
+            <div class="detection-text">${escapeHtml(text)}</div>
+            <div class="detection-keyword">Keyword: ${escapeHtml(keywordLabel)}</div>
+          </div>`;
+      })
       .join('');
   }
 }

@@ -109,7 +109,7 @@ function escapeOpt(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Save when user clicks Save Settings
+// Save when user clicks Save Settings (sync: 3 keys; local: tracked groups)
 saveBtn.addEventListener('click', async () => {
   const keywordsText = keywordsTextarea.value || '';
   const keywords = keywordsText
@@ -121,8 +121,8 @@ saveBtn.addEventListener('click', async () => {
     isPaidUser: paidCheckbox.checked,
     keywords,
     soundEnabled: soundCheckbox.checked,
-    trackedGroups: trackedGroupsList,
   });
+  await saveTrackedGroups(trackedGroupsList);
   saveMessage.style.display = 'block';
   setTimeout(() => {
     saveMessage.style.display = 'none';
