@@ -15,6 +15,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const settings = await getSettings();
         const activityLog = await getActivityLog();
+        const lastFacebookContext = await getLastFacebookContext();
         const selectedCount = settings.trackedGroups.filter((g) => g.selected).length;
         const latest = activityLog.length > 0 ? activityLog[activityLog.length - 1] : null;
         sendResponse({
@@ -25,6 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           detectionCount: settings.detections.length,
           activityCount: activityLog.length,
           latestActivity: latest,
+          lastFacebookContext,
         });
       } catch (err) {
         console.error('[Groopa] GET_EXTENSION_STATUS error', err);
@@ -45,6 +47,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[Groopa] CONTENT_SCRIPT_PING error', err);
+        sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'FACEBOOK_CONTEXT_DETECTED') {
+    (async () => {
+      try {
+        const context = message.context;
+        if (!context) {
+          sendResponse({ ok: false, error: 'Missing context' });
+          return;
+        }
+        await saveLastFacebookContext(context);
+        const isGroup = context.isGroupPage === true;
+        await addActivityLogEntry({
+          timestamp: context.detectedAt || new Date().toISOString(),
+          url: context.url || '',
+          title: context.title || '',
+          kind: isGroup ? 'facebook_group_page' : 'facebook_page',
+          groupName: context.groupName || undefined,
+          groupIdentifier: context.groupIdentifier || undefined,
+        });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] FACEBOOK_CONTEXT_DETECTED error', err);
         sendResponse({ error: String(err.message) });
       }
     })();

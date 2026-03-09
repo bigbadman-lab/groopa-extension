@@ -8,6 +8,7 @@ const countDetections = document.getElementById('count-detections');
 const keywordsChips = document.getElementById('keywords-chips');
 const trackedGroupsEl = document.getElementById('tracked-groups');
 const recentDetectionsEl = document.getElementById('recent-detections');
+const facebookContextEl = document.getElementById('facebook-context');
 const openSettingsBtn = document.getElementById('open-settings');
 
 // Escape HTML so user content is safe to show
@@ -46,9 +47,13 @@ function getExtensionStatus() {
   });
 }
 
-// Build hero detail line from status
+// Build hero detail line from status; if group page detected, mention it
 function heroDetailFromStatus(status) {
   const parts = [];
+  const ctx = status.lastFacebookContext;
+  if (ctx && ctx.isGroupPage && (ctx.groupName || ctx.groupIdentifier)) {
+    parts.push('Viewing group: ' + (ctx.groupName || ctx.groupIdentifier));
+  }
   parts.push(status.soundEnabled ? 'Sound on' : 'Sound off');
   parts.push(`${status.selectedGroupCount} group${status.selectedGroupCount === 1 ? '' : 's'} selected`);
   if (status.activityCount != null && status.activityCount > 0) {
@@ -84,7 +89,7 @@ async function loadAndRender() {
     countGroups.textContent = status.selectedGroupCount;
     countDetections.textContent = status.detectionCount;
   } else {
-    // Fallback: compute from settings
+    // Fallback: compute from settings (no lastFacebookContext)
     const selectedCount = groupsList.filter((g) => g.selected).length;
     heroStatus.textContent = settings.isPaidUser ? 'Groopa is ready' : 'Paid access required';
     heroDetail.textContent = settings.isPaidUser
@@ -93,6 +98,23 @@ async function loadAndRender() {
     countKeywords.textContent = keywordList.length;
     countGroups.textContent = selectedCount;
     countDetections.textContent = detectionsList.length;
+  }
+
+  // Facebook context panel (from status or from settings when background unavailable)
+  const ctx = (status && status.lastFacebookContext) ? status.lastFacebookContext : (settings.lastFacebookContext || null);
+  if (!ctx || !ctx.isFacebook) {
+    facebookContextEl.className = 'placeholder-content';
+    facebookContextEl.innerHTML = '<p class="placeholder-text">No Facebook page detected yet. Visit a Facebook page to see context.</p>';
+  } else {
+    facebookContextEl.className = 'list-content';
+    const rows = [];
+    rows.push('<div class="list-item detection-item"><div class="detection-meta">Page type</div><div class="detection-text">' + (ctx.isGroupPage ? 'Group page' : 'Normal Facebook page') + '</div></div>');
+    if (ctx.title) rows.push('<div class="list-item detection-item"><div class="detection-meta">Title</div><div class="detection-text">' + escapeHtml(ctx.title) + '</div></div>');
+    if (ctx.isGroupPage) {
+      if (ctx.groupName) rows.push('<div class="list-item detection-item"><div class="detection-meta">Group name</div><div class="detection-text">' + escapeHtml(ctx.groupName) + '</div></div>');
+      if (ctx.groupIdentifier) rows.push('<div class="list-item detection-item"><div class="detection-meta">Group ID</div><div class="detection-keyword">' + escapeHtml(ctx.groupIdentifier) + '</div></div>');
+    }
+    facebookContextEl.innerHTML = rows.join('');
   }
 
   // Keyword chips

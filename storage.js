@@ -1,6 +1,6 @@
 // Groopa storage service — shared helpers for chrome.storage.sync
 
-const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections', 'activityLog'];
+const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -9,6 +9,7 @@ const DEFAULTS = {
   trackedGroups: [],
   detections: [],
   activityLog: [],
+  lastFacebookContext: null,
 };
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
@@ -38,6 +39,7 @@ async function getSettings() {
     trackedGroups: Array.isArray(raw.trackedGroups) ? raw.trackedGroups : DEFAULTS.trackedGroups,
     detections: Array.isArray(raw.detections) ? raw.detections : DEFAULTS.detections,
     activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : DEFAULTS.activityLog,
+    lastFacebookContext: raw.lastFacebookContext != null ? raw.lastFacebookContext : DEFAULTS.lastFacebookContext,
   };
 }
 
@@ -117,4 +119,19 @@ async function addActivityLogEntry(entry) {
   log.push({ ...entry, timestamp: entry.timestamp || new Date().toISOString() });
   const trimmed = log.slice(-MAX_ACTIVITY_LOG_ENTRIES);
   await saveActivityLog(trimmed);
+}
+
+/**
+ * @returns {Promise<object|null>} Last detected Facebook context or null
+ */
+async function getLastFacebookContext() {
+  const raw = await getFromStorage(['lastFacebookContext']);
+  return raw.lastFacebookContext != null ? raw.lastFacebookContext : null;
+}
+
+/**
+ * @param {object|null} lastFacebookContext
+ */
+async function saveLastFacebookContext(lastFacebookContext) {
+  await setInStorage({ lastFacebookContext: lastFacebookContext != null ? lastFacebookContext : null });
 }
