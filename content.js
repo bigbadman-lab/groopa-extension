@@ -189,17 +189,22 @@
   function runPostCandidateScan(attemptLabel) {
     const { candidates, nodeCount, selector } = extractVisiblePostCandidates();
     console.log(PREFIX, attemptLabel, '— nodes found:', nodeCount, 'selector:', selector, 'candidates extracted:', candidates.length);
-    if (candidates.length > 0) {
+    if (candidates.length === 0) return;
+    try {
       chrome.runtime.sendMessage(
         {
           type: 'PAGE_POST_CANDIDATES_DETECTED',
-          candidates,
+          candidates: candidates,
           url: window.location.href,
         },
-        function () {
-          if (chrome.runtime.lastError) console.warn(PREFIX, 'Post candidates send failed:', chrome.runtime.lastError.message);
+        function sendMessageCallback() {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            console.warn(PREFIX, 'Post candidates send failed:', chrome.runtime.lastError.message);
+          }
         }
       );
+    } catch (err) {
+      console.warn(PREFIX, 'runPostCandidateScan sendMessage error', err);
     }
   }
 
