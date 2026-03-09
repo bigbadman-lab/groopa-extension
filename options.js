@@ -145,7 +145,7 @@ function renderMonitorStatus(settings) {
     try {
       const d = new Date(mon.monitorLastRunAt);
       if (!isNaN(d.getTime())) {
-        metaParts.push('Last run: ' + d.toLocaleTimeString());
+        metaParts.push('Last run: ' + formatRelativeTime(mon.monitorLastRunAt));
       }
     } catch (_) {}
   }
@@ -180,6 +180,26 @@ function renderMonitorStatus(settings) {
 async function refreshMonitorStatus() {
   const settings = await getSettings();
   renderMonitorStatus(settings);
+}
+
+function formatRelativeTime(isoDateString) {
+  if (!isoDateString) return '—';
+  try {
+    const d = new Date(isoDateString);
+    if (isNaN(d.getTime())) return '—';
+    const now = Date.now();
+    const diffMs = now - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffSec < 10) return 'just now';
+    if (diffSec < 60) return diffSec + 's ago';
+    if (diffMin < 60) return diffMin + ' min ago';
+    if (diffHr < 24) return diffHr + ' hr ago';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (_) {
+    return '—';
+  }
 }
 
 function renderKeywords() {
@@ -239,6 +259,7 @@ if (addGroupBtn && addGroupUrlInput) {
       detectedGroupsList = await getDetectedGroups();
       trackedGroupsList = await getTrackedGroups();
       renderDetectedGroups();
+      await refreshMonitorStatus();
     } catch (err) {
       if (addGroupErrorEl) addGroupErrorEl.textContent = err && err.message ? err.message : 'Could not add group.';
     }
@@ -329,6 +350,7 @@ function renderDetectedGroups() {
         trackedGroupsList = trackedGroupsList.filter((g) => String(g.id) !== id);
         await saveTrackedGroups(trackedGroupsList);
       }
+      await refreshMonitorStatus();
     });
   });
 }
@@ -450,6 +472,7 @@ loadDemoBtn.addEventListener('click', async () => {
   detectionsList = DEMO_DETECTIONS.slice();
   renderDetectedGroups();
   renderInbox();
+  await refreshMonitorStatus();
   showDemoMessage('Demo data loaded. Open the popup to see it.');
 });
 
@@ -460,6 +483,7 @@ clearDemoBtn.addEventListener('click', async () => {
   await clearDemoData();
   renderDetectedGroups();
   renderInbox();
+  await refreshMonitorStatus();
   showDemoMessage('Demo data cleared.');
 });
 
@@ -523,5 +547,9 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     });
   });
 });
+
+// Refresh monitor section (e.g. "Last run: 2 min ago") every 8s so relative time stays current
+const MONITOR_REFRESH_INTERVAL_MS = 8000;
+setInterval(() => refreshMonitorStatus(), MONITOR_REFRESH_INTERVAL_MS);
 
 loadPage();
