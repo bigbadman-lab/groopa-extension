@@ -17,6 +17,10 @@ const detectionDetailGroup = document.getElementById('detection-detail-group');
 const detectionDetailText = document.getElementById('detection-detail-text');
 const detectionDetailKeywords = document.getElementById('detection-detail-keywords');
 const detectionDetailOpenFb = document.getElementById('detection-detail-open-fb');
+const detailPlaceholder = document.getElementById('detail-placeholder');
+const toggleMoreBtn = document.getElementById('toggle-more');
+const collapsibleContent = document.getElementById('collapsible-content');
+const collapsibleSection = document.querySelector('.collapsible-section');
 
 /** Last rendered detections list (used when opening a detection so we have the full object). */
 let lastDetectionsList = [];
@@ -210,12 +214,11 @@ async function loadAndRender() {
     });
   }
 
-  // Recent detections: inbox list (clickable rows)
+  // Recent detections: inbox list (clickable rows) — list always visible; detail in right column
   lastDetectionsList = detectionsList;
   if (detectionsList.length === 0) {
     recentDetectionsEl.className = 'placeholder-content';
     recentDetectionsEl.innerHTML = '<p class="placeholder-text">No detections yet.</p>';
-    detectionDetailPanel.hidden = true;
   } else {
     recentDetectionsEl.className = 'list-content';
     const previewLen = 80;
@@ -248,7 +251,10 @@ async function loadAndRender() {
       });
     });
   }
-  detectionDetailPanel.hidden = true;
+  // Right column: show placeholder when no detection selected, detail when one is selected
+  if (detailPlaceholder) {
+    detailPlaceholder.hidden = !detectionDetailPanel.hidden;
+  }
 }
 
 function showDetectionDetail(detection) {
@@ -259,13 +265,13 @@ function showDetectionDetail(detection) {
   detectionDetailText.textContent = text || '—';
   detectionDetailKeywords.textContent = 'Keywords: ' + keywordLabel;
   detectionDetailOpenFb.dataset.url = detection.pageUrl || '';
-  recentDetectionsEl.hidden = true;
+  detailPlaceholder.hidden = true;
   detectionDetailPanel.hidden = false;
 }
 
 function showDetectionsList() {
+  detailPlaceholder.hidden = false;
   detectionDetailPanel.hidden = true;
-  recentDetectionsEl.hidden = false;
   loadAndRender();
 }
 
@@ -276,6 +282,16 @@ detectionDetailOpenFb.addEventListener('click', () => {
 });
 
 loadAndRender();
+
+// Collapsible "Setup & debug" section
+if (toggleMoreBtn && collapsibleContent && collapsibleSection) {
+  toggleMoreBtn.addEventListener('click', () => {
+    collapsibleContent.hidden = !collapsibleContent.hidden;
+    const expanded = !collapsibleContent.hidden;
+    toggleMoreBtn.setAttribute('aria-expanded', String(expanded));
+    collapsibleSection.setAttribute('data-expanded', String(expanded));
+  });
+}
 
 // Open options page
 openSettingsBtn.addEventListener('click', () => {

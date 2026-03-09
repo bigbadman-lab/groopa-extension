@@ -10,68 +10,72 @@
   <div class="popup">
     <header class="header">
       <h1 class="title">Groopa</h1>
-      <button id="open-settings" class="btn-icon" title="Settings">⚙</button>
+      <button id="open-settings" class="btn-icon" title="Settings">&#9881;</button>
     </header>
 
-    <div class="card hero-card">
-      <p id="hero-status" class="hero-status">Loading…</p>
-      <p id="hero-detail" class="hero-detail"></p>
-    </div>
-
-    <div class="summary-row">
-      <div class="mini-card">
-        <span id="count-keywords" class="mini-count">0</span>
-        <span class="mini-label">Keywords</span>
+    <div class="status-bar">
+      <div class="status-main">
+        <span id="hero-status" class="hero-status">Loading…</span>
+        <span id="hero-detail" class="hero-detail"></span>
       </div>
-      <div class="mini-card">
-        <span id="count-groups" class="mini-count">0</span>
-        <span class="mini-label">Tracked Groups</span>
-      </div>
-      <div class="mini-card">
-        <span id="count-detections" class="mini-count">0</span>
-        <span class="mini-label">Detections</span>
+      <div class="summary-row">
+        <span class="summary-item"><span id="count-keywords" class="summary-num">0</span> keywords</span>
+        <span class="summary-item"><span id="count-groups" class="summary-num">0</span> groups</span>
+        <span class="summary-item"><span id="count-detections" class="summary-num">0</span> detections</span>
       </div>
     </div>
 
-    <section class="section">
-      <h2 class="section-title">Tracked keywords</h2>
-      <div id="keywords-chips" class="chips"></div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">Tracked groups</h2>
-      <div id="tracked-groups" class="placeholder-content">
-        <p class="placeholder-text">No groups added yet. Add groups in Settings.</p>
+    <div class="workspace">
+      <div class="inbox-column">
+        <h2 class="workspace-title">Inbox</h2>
+        <div id="detections-inbox-wrap" class="inbox-wrap">
+          <div id="recent-detections" class="placeholder-content">
+            <p class="placeholder-text">No detections yet.</p>
+          </div>
+        </div>
       </div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">Recent detections</h2>
-      <div id="detections-inbox-wrap">
-        <div id="recent-detections" class="placeholder-content">
-          <p class="placeholder-text">No detections yet.</p>
+      <div class="detail-column">
+        <div id="detail-placeholder" class="detail-placeholder">
+          <p class="detail-placeholder-text">Select a lead from the list</p>
         </div>
         <div id="detection-detail" class="detection-detail" hidden>
-          <button type="button" id="detection-detail-back" class="btn-back">← Back to list</button>
+          <button type="button" id="detection-detail-back" class="btn-back">&#8592; Back</button>
           <p class="detection-detail-group" id="detection-detail-group"></p>
           <p class="detection-detail-text" id="detection-detail-text"></p>
           <p class="detection-detail-keywords" id="detection-detail-keywords"></p>
           <button type="button" id="detection-detail-open-fb" class="btn btn-primary">Open in Facebook</button>
         </div>
       </div>
-    </section>
+    </div>
 
-    <section class="section">
-      <h2 class="section-title">Facebook context</h2>
-      <div id="facebook-context" class="placeholder-content">
-        <p class="placeholder-text">No Facebook page detected yet. Visit a Facebook page to see context.</p>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">Visible post candidates</h2>
-      <div id="visible-post-candidates" class="placeholder-content">
-        <p class="placeholder-text">No post candidates yet. Open a Facebook group page to capture visible posts.</p>
+    <section class="collapsible-section">
+      <button type="button" id="toggle-more" class="collapsible-toggle" aria-expanded="false">
+        <span class="collapsible-toggle-text">Setup &amp; debug</span>
+        <span class="collapsible-toggle-icon" aria-hidden="true">&#9660;</span>
+      </button>
+      <div id="collapsible-content" class="collapsible-content" hidden>
+        <div class="section">
+          <h2 class="section-title">Tracked keywords</h2>
+          <div id="keywords-chips" class="chips"></div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">Tracked groups</h2>
+          <div id="tracked-groups" class="placeholder-content">
+            <p class="placeholder-text">No groups added yet. Add groups in Settings.</p>
+          </div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">Facebook context</h2>
+          <div id="facebook-context" class="placeholder-content">
+            <p class="placeholder-text">No Facebook page detected yet. Visit a Facebook page to see context.</p>
+          </div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">Visible post candidates</h2>
+          <div id="visible-post-candidates" class="placeholder-content">
+            <p class="placeholder-text">No post candidates yet. Open a Facebook group page to capture visible posts.</p>
+          </div>
+        </div>
       </div>
     </section>
   </div>
