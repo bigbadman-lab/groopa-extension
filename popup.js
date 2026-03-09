@@ -1,4 +1,4 @@
-// Groopa popup — dashboard: load settings and render (uses storage service)
+// Groopa popup — dashboard: live status from background + storage for lists
 
 const heroStatus = document.getElementById('hero-status');
 const heroDetail = document.getElementById('hero-detail');
@@ -33,36 +33,69 @@ function formatDate(isoString) {
   }
 }
 
-// Load from storage and render dashboard
+// Request live status from background; fallback to getSettings() if worker unavailable
+function getExtensionStatus() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'GET_EXTENSION_STATUS' }, (response) => {
+      if (chrome.runtime.lastError || (response && response.error)) {
+        resolve(null);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+// Build hero detail line from status
+function heroDetailFromStatus(status) {
+  const parts = [];
+  parts.push(status.soundEnabled ? 'Sound on' : 'Sound off');
+  parts.push(`${status.selectedGroupCount} group${status.selectedGroupCount === 1 ? '' : 's'} selected`);
+  if (status.activityCount != null && status.activityCount > 0) {
+    parts.push(`${status.activityCount} page load${status.activityCount === 1 ? '' : 's'}`);
+    if (status.latestActivity && status.latestActivity.url) {
+      try {
+        const short = new URL(status.latestActivity.url).pathname || status.latestActivity.url;
+        parts.push(`Last: ${short}`);
+      } catch (_) {
+        parts.push('Last activity recorded');
+      }
+    }
+  }
+  return parts.join(' · ');
+}
+
+// Load from background (or fallback) and from storage, then render
 async function loadAndRender() {
+  const status = await getExtensionStatus();
   const settings = await getSettings();
-  const isPaidUser = settings.isPaidUser;
+
   const keywordList = settings.keywords;
-  const soundEnabled = settings.soundEnabled;
   const groupsList = settings.trackedGroups;
   const detectionsList = settings.detections;
 
-  const selectedCount = groupsList.filter((g) => g.selected).length;
-
-  // Hero status
-  if (!isPaidUser) {
-    heroStatus.textContent = 'Paid access required';
-    heroDetail.textContent = 'Enable paid user access in Settings to use Groopa.';
+  if (status && !status.error) {
+    // Live status from background
+    heroStatus.textContent = status.isPaidUser ? 'Groopa is ready' : 'Paid access required';
+    heroDetail.textContent = status.isPaidUser
+      ? heroDetailFromStatus(status)
+      : 'Enable paid user access in Settings to use Groopa.';
+    countKeywords.textContent = status.keywordCount;
+    countGroups.textContent = status.selectedGroupCount;
+    countDetections.textContent = status.detectionCount;
   } else {
-    heroStatus.textContent = 'Groopa is ready';
-    const parts = [];
-    if (soundEnabled) parts.push('Sound on');
-    else parts.push('Sound off');
-    parts.push(`${selectedCount} group${selectedCount === 1 ? '' : 's'} selected for monitoring`);
-    heroDetail.textContent = parts.join(' · ');
+    // Fallback: compute from settings
+    const selectedCount = groupsList.filter((g) => g.selected).length;
+    heroStatus.textContent = settings.isPaidUser ? 'Groopa is ready' : 'Paid access required';
+    heroDetail.textContent = settings.isPaidUser
+      ? `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} group${selectedCount === 1 ? '' : 's'} selected (background unavailable)`
+      : 'Enable paid user access in Settings to use Groopa.';
+    countKeywords.textContent = keywordList.length;
+    countGroups.textContent = selectedCount;
+    countDetections.textContent = detectionsList.length;
   }
 
-  // Summary counts (only selected groups in Tracked Groups card)
-  countKeywords.textContent = keywordList.length;
-  countGroups.textContent = selectedCount;
-  countDetections.textContent = detectionsList.length;
-
-  // Keyword chips (use textContent so no escaping needed)
+  // Keyword chips
   keywordsChips.innerHTML = '';
   keywordList.forEach((keyword) => {
     const chip = document.createElement('span');
@@ -71,7 +104,7 @@ async function loadAndRender() {
     keywordsChips.appendChild(chip);
   });
 
-  // Tracked groups list (all detected groups; show tracking status)
+  // Tracked groups list
   if (groupsList.length === 0) {
     trackedGroupsEl.className = 'placeholder-content';
     trackedGroupsEl.innerHTML = '<p class="placeholder-text">No groups added yet. Add groups in Settings.</p>';

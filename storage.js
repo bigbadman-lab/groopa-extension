@@ -1,6 +1,6 @@
 // Groopa storage service — shared helpers for chrome.storage.sync
 
-const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections'];
+const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections', 'activityLog'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -8,7 +8,10 @@ const DEFAULTS = {
   soundEnabled: true,
   trackedGroups: [],
   detections: [],
+  activityLog: [],
 };
+
+const MAX_ACTIVITY_LOG_ENTRIES = 100;
 
 function getFromStorage(keys) {
   return new Promise((resolve) => {
@@ -34,6 +37,7 @@ async function getSettings() {
     soundEnabled: raw.soundEnabled !== false,
     trackedGroups: Array.isArray(raw.trackedGroups) ? raw.trackedGroups : DEFAULTS.trackedGroups,
     detections: Array.isArray(raw.detections) ? raw.detections : DEFAULTS.detections,
+    activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : DEFAULTS.activityLog,
   };
 }
 
@@ -87,4 +91,30 @@ async function saveDetections(detections) {
  */
 async function clearDemoData() {
   await setInStorage({ trackedGroups: [], detections: [] });
+}
+
+/**
+ * @returns {Promise<object[]>}
+ */
+async function getActivityLog() {
+  const raw = await getFromStorage(['activityLog']);
+  return Array.isArray(raw.activityLog) ? raw.activityLog : [];
+}
+
+/**
+ * @param {object[]} activityLog
+ */
+async function saveActivityLog(activityLog) {
+  await setInStorage({ activityLog: Array.isArray(activityLog) ? activityLog : [] });
+}
+
+/**
+ * Append one entry and trim log to max size.
+ * @param {object} entry - e.g. { timestamp, url, title }
+ */
+async function addActivityLogEntry(entry) {
+  const log = await getActivityLog();
+  log.push({ ...entry, timestamp: entry.timestamp || new Date().toISOString() });
+  const trimmed = log.slice(-MAX_ACTIVITY_LOG_ENTRIES);
+  await saveActivityLog(trimmed);
 }
