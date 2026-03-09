@@ -4,103 +4,111 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Groopa Settings</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 24px;
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 14px;
-      color: #1a1a1a;
-    }
-    h1 { margin: 0 0 20px 0; font-size: 22px; }
-    .option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-    .option label { cursor: pointer; }
-    .field { margin-bottom: 16px; }
-    .field label { display: block; margin-bottom: 6px; font-weight: 500; }
-    .field textarea {
-      width: 100%;
-      padding: 10px;
-      font-family: inherit;
-      font-size: 13px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      resize: vertical;
-    }
-    .btn {
-      padding: 10px 20px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #fff;
-      background: #1877f2;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .btn:hover { background: #166fe5; }
-    .btn-secondary { background: #555; }
-    .btn-secondary:hover { background: #444; }
-    #save-message { margin-top: 12px; font-size: 13px; color: #0a0; }
-    #demo-message { color: #0a0; }
-    .groups-list { margin-bottom: 8px; }
-    .group-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      border: 1px solid #eee;
-    }
-    .group-row .group-info { flex: 1; min-width: 0; }
-    .group-row .group-name { font-weight: 500; color: #1a1a1a; }
-    .group-row .group-url { font-size: 12px; color: #1877f2; word-break: break-all; }
-    .group-row .group-url a { color: #1877f2; }
-    .group-row .group-meta { font-size: 11px; color: #666; margin-top: 4px; }
-    .group-row .track-option { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
-    .group-row .track-option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-    .group-row .track-option label { cursor: pointer; font-size: 13px; }
-    .groups-empty { font-size: 13px; color: #888; padding: 12px; background: #f8f8f8; border-radius: 6px; }
-  </style>
+  <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <h1>Groopa Settings</h1>
+  <div class="settings-app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <h1 class="sidebar-title">Groopa</h1>
+        <span class="sidebar-version" id="sidebar-version">—</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item nav-item--active" data-panel="keywords">Keywords</button>
+        <button type="button" class="nav-item" data-panel="groups">Groups</button>
+        <button type="button" class="nav-item" data-panel="notifications">Notifications</button>
+        <button type="button" class="nav-item" data-panel="account">Account</button>
+        <button type="button" class="nav-item" data-panel="debug">Debug</button>
+      </nav>
+    </aside>
 
-  <div class="option">
-    <input type="checkbox" id="paid-user" />
-    <label for="paid-user">Paid user access (development)</label>
+    <main class="main">
+      <section id="panel-keywords" class="panel panel--active">
+        <div class="page-header">
+          <h2 class="page-title">Keywords</h2>
+          <p class="page-desc">Manage keywords that Groopa will watch for in your tracked groups.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Tracked keywords</h3>
+          <p class="card-hint">When a post in a tracked group contains one of these keywords, Groopa will create a lead in your inbox.</p>
+          <div class="keywords-add-row">
+            <input type="text" id="keyword-input" class="keyword-input" placeholder="Add a keyword…" />
+            <button type="button" id="keyword-add-btn" class="btn btn-primary">Add</button>
+          </div>
+          <div id="keywords-list" class="keywords-list"></div>
+          <p id="keywords-empty" class="keywords-empty">No keywords yet. Add one above.</p>
+        </div>
+      </section>
+
+      <section id="panel-groups" class="panel">
+        <div class="page-header">
+          <h2 class="page-title">Groups</h2>
+          <p class="page-desc">Choose which Facebook groups to monitor.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Detected groups</h3>
+          <p class="card-hint">Visit Facebook group pages to detect them. Toggle Track to start or stop monitoring.</p>
+          <div id="detected-groups" class="groups-list"></div>
+        </div>
+      </section>
+
+      <section id="panel-notifications" class="panel">
+        <div class="page-header">
+          <h2 class="page-title">Notifications</h2>
+          <p class="page-desc">Configure how you’re notified about new leads.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Sound</h3>
+          <div class="option-row">
+            <input type="checkbox" id="sound-enabled" class="option-checkbox" />
+            <label for="sound-enabled" class="option-label">Sound notification when a new lead is detected</label>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Telegram</h3>
+          <p class="card-hint">Telegram alerts coming soon.</p>
+        </div>
+      </section>
+
+      <section id="panel-account" class="panel">
+        <div class="page-header">
+          <h2 class="page-title">Account</h2>
+          <p class="page-desc">Your plan and extension info.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Plan</h3>
+          <p class="account-plan" id="account-plan">—</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Extension</h3>
+          <p class="account-version">Version <span id="account-version">—</span></p>
+        </div>
+      </section>
+
+      <section id="panel-debug" class="panel">
+        <div class="page-header">
+          <h2 class="page-title">Debug</h2>
+          <p class="page-desc">Development and testing tools.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Access</h3>
+          <div class="option-row">
+            <input type="checkbox" id="paid-user" class="option-checkbox" />
+            <label for="paid-user" class="option-label">Paid user access (development)</label>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Demo data</h3>
+          <p class="card-hint">Load or clear demo groups and detections for UI testing.</p>
+          <div class="button-row">
+            <button type="button" id="load-demo-btn" class="btn btn-secondary">Load Demo Data</button>
+            <button type="button" id="clear-demo-btn" class="btn btn-secondary">Clear Demo Data</button>
+          </div>
+          <p id="demo-message" class="demo-message" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
   </div>
-
-  <div class="field">
-    <label for="keywords">Keywords (one per line)</label>
-    <textarea id="keywords" rows="6" placeholder="e.g.&#10;alert&#10;urgent"></textarea>
-  </div>
-
-  <div class="option">
-    <input type="checkbox" id="sound-enabled" />
-    <label for="sound-enabled">Sound notification</label>
-  </div>
-
-  <button id="save-btn" class="btn">Save Settings</button>
-  <p id="save-message" style="display: none;">Settings saved.</p>
-
-  <h2 style="margin: 24px 0 12px 0; font-size: 16px;">Detected groups</h2>
-  <p style="margin: 0 0 10px 0; font-size: 13px; color: #555;">Choose which groups to track. Toggling Track updates immediately.</p>
-  <div id="detected-groups" class="groups-list"></div>
-
-  <h2 style="margin: 24px 0 12px 0; font-size: 16px;">Demo data (for UI testing)</h2>
-  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-    <button id="load-demo-btn" class="btn btn-secondary">Load Demo Data</button>
-    <button id="clear-demo-btn" class="btn btn-secondary">Clear Demo Data</button>
-  </div>
-  <p id="demo-message" style="display: none; margin-top: 8px; font-size: 13px;"></p>
 
   <script src="storage.js"></script>
   <script src="options.js"></script>
