@@ -13,17 +13,32 @@
       <button id="open-settings" class="btn-icon" title="Settings">&#9881;</button>
     </header>
 
-    <div class="status-bar">
-      <div class="status-main">
-        <span id="hero-status" class="hero-status">Loading…</span>
-        <span id="hero-detail" class="hero-detail"></span>
+    <div class="status-line">
+      <span id="hero-status" class="hero-status">Loading…</span>
+      <span id="hero-detail" class="hero-detail"></span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <span id="count-keywords" class="kpi-value">0</span>
+        <span class="kpi-label">Keywords</span>
       </div>
-      <div class="summary-row">
-        <span class="summary-item"><span id="count-keywords" class="summary-num">0</span> keywords</span>
-        <span class="summary-item"><span id="count-groups" class="summary-num">0</span> groups</span>
-        <span class="summary-item"><span id="count-detections" class="summary-num">0</span> detections</span>
+      <div class="kpi-card">
+        <span id="count-groups" class="kpi-value">0</span>
+        <span class="kpi-label">Groups</span>
+      </div>
+      <div class="kpi-card">
+        <span id="count-detections" class="kpi-value">0</span>
+        <span class="kpi-label">Leads</span>
       </div>
     </div>
+
+    <section class="recent-scans-section">
+      <h2 class="recent-scans-title">Latest group scans</h2>
+      <div id="recent-scans" class="recent-scans-list">
+        <p class="placeholder-text">No recent scans yet.</p>
+      </div>
+    </section>
 
     <div class="workspace">
       <div class="inbox-column">

@@ -21,6 +21,7 @@ const detailPlaceholder = document.getElementById('detail-placeholder');
 const toggleMoreBtn = document.getElementById('toggle-more');
 const collapsibleContent = document.getElementById('collapsible-content');
 const collapsibleSection = document.querySelector('.collapsible-section');
+const recentScansEl = document.getElementById('recent-scans');
 
 /** Last rendered detections list (used when opening a detection so we have the full object). */
 let lastDetectionsList = [];
@@ -43,6 +44,27 @@ function formatDate(isoString) {
   try {
     const d = new Date(isoString);
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (_) {
+    return isoString;
+  }
+}
+
+// Human-friendly relative time for "Last scan"
+function formatRelativeTime(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return diffMins + ' min ago';
+    if (diffHours < 24) return diffHours + ' hour' + (diffHours === 1 ? '' : 's') + ' ago';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return diffDays + ' days ago';
+    return formatDate(isoString);
   } catch (_) {
     return isoString;
   }
@@ -128,6 +150,32 @@ async function loadAndRender() {
     countKeywords.textContent = keywordList.length;
     countGroups.textContent = selectedCount;
     countDetections.textContent = detectionsList.length;
+  }
+
+  // Latest group scans: detected groups sorted by lastSeenAt, top 5
+  if (recentScansEl) {
+    const withDate = (detectedGroupsList || [])
+      .filter((g) => g && (g.lastSeenAt || g.name))
+      .map((g) => ({ name: g.name || g.slug || 'Group', lastSeenAt: g.lastSeenAt || null }))
+      .sort((a, b) => {
+        if (!a.lastSeenAt) return 1;
+        if (!b.lastSeenAt) return -1;
+        return new Date(b.lastSeenAt) - new Date(a.lastSeenAt);
+      })
+      .slice(0, 5);
+    if (withDate.length === 0) {
+      recentScansEl.innerHTML = '<p class="placeholder-text">No recent scans yet.</p>';
+    } else {
+      recentScansEl.innerHTML = withDate
+        .map(
+          (g) =>
+            `<div class="recent-scan-item">
+              <span class="recent-scan-name">${escapeHtml(g.name)}</span>
+              <span class="recent-scan-meta"><span class="recent-scan-label">Last scan</span> ${escapeHtml(formatRelativeTime(g.lastSeenAt))}</span>
+            </div>`
+        )
+        .join('');
+    }
   }
 
   // Facebook context panel (from status or from settings when background unavailable)

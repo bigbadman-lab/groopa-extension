@@ -53,54 +53,117 @@ body {
   color: #1a1a1a;
 }
 
-/* Compact status bar */
-.status-bar {
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  border: 1px solid #dde4f5;
-}
-
-.status-main {
+/* Status line (compact) */
+.status-line {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 10px;
-  margin-bottom: 6px;
+  margin-bottom: 14px;
+  font-size: 13px;
 }
 
 .hero-status {
   margin: 0;
-  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
 }
 
 .hero-detail {
+  margin: 0;
   font-size: 12px;
-  color: #555;
+  color: #666;
 }
 
 .hero-detail:empty {
   display: none;
 }
 
-.summary-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-  font-size: 12px;
+/* KPI row: large summary numbers */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.kpi-card {
+  background: linear-gradient(145deg, #f0f4ff 0%, #e8eeff 100%);
+  border: 1px solid #dde4f5;
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.kpi-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #1877f2;
+  margin-bottom: 4px;
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #555;
+}
+
+/* Latest group scans */
+.recent-scans-section {
+  margin-bottom: 16px;
+}
+
+.recent-scans-title {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: #666;
 }
 
-.summary-num {
-  font-weight: 700;
-  color: #1877f2;
+.recent-scans-list {
+  background: #f8f8f8;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
-.summary-item {
+.recent-scans-list .recent-scan-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.recent-scans-list .recent-scan-item:last-child {
+  border-bottom: none;
+}
+
+.recent-scan-name {
+  font-weight: 500;
+  color: #1a1a1a;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recent-scan-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #666;
+}
+
+.recent-scan-meta .recent-scan-label {
+  color: #888;
 }
 
 /* Workspace: two columns */
