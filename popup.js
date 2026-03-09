@@ -55,7 +55,9 @@ function heroDetailFromStatus(status) {
     parts.push('Viewing group: ' + (ctx.groupName || ctx.groupIdentifier));
   }
   parts.push(status.soundEnabled ? 'Sound on' : 'Sound off');
-  parts.push(`${status.selectedGroupCount} group${status.selectedGroupCount === 1 ? '' : 's'} selected`);
+  const sel = status.selectedGroupCount != null ? status.selectedGroupCount : 0;
+  const det = status.detectedGroupCount != null ? status.detectedGroupCount : 0;
+  parts.push(`${sel} of ${det} group${det === 1 ? '' : 's'} tracked`);
   if (status.activityCount != null && status.activityCount > 0) {
     parts.push(`${status.activityCount} page load${status.activityCount === 1 ? '' : 's'}`);
     if (status.latestActivity && status.latestActivity.url) {
@@ -76,8 +78,14 @@ async function loadAndRender() {
   const settings = await getSettings();
 
   const keywordList = settings.keywords;
-  const groupsList = settings.trackedGroups;
+  const detectedGroupsList = settings.detectedGroups || [];
+  const trackedGroupsList = settings.trackedGroups || [];
   const detectionsList = settings.detections;
+
+  function isTracked(groupId) {
+    const id = groupId != null ? String(groupId) : '';
+    return trackedGroupsList.some((g) => String(g.id) === id);
+  }
 
   if (status && !status.error) {
     // Live status from background
@@ -86,14 +94,15 @@ async function loadAndRender() {
       ? heroDetailFromStatus(status)
       : 'Enable paid user access in Settings to use Groopa.';
     countKeywords.textContent = status.keywordCount;
-    countGroups.textContent = status.selectedGroupCount;
+    countGroups.textContent = status.selectedGroupCount != null ? status.selectedGroupCount : trackedGroupsList.length;
     countDetections.textContent = status.detectionCount;
   } else {
-    // Fallback: compute from settings (no lastFacebookContext)
-    const selectedCount = groupsList.filter((g) => g.selected).length;
+    // Fallback: compute from settings
+    const selectedCount = trackedGroupsList.length;
+    const detectedCount = detectedGroupsList.length;
     heroStatus.textContent = settings.isPaidUser ? 'Groopa is ready' : 'Paid access required';
     heroDetail.textContent = settings.isPaidUser
-      ? `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} group${selectedCount === 1 ? '' : 's'} selected (background unavailable)`
+      ? `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} of ${detectedCount} groups tracked (background unavailable)`
       : 'Enable paid user access in Settings to use Groopa.';
     countKeywords.textContent = keywordList.length;
     countGroups.textContent = selectedCount;
@@ -126,18 +135,18 @@ async function loadAndRender() {
     keywordsChips.appendChild(chip);
   });
 
-  // Tracked groups list
-  if (groupsList.length === 0) {
+  // Tracked groups list: show all detected groups, with Tracking enabled / Detected, not selected
+  if (detectedGroupsList.length === 0) {
     trackedGroupsEl.className = 'placeholder-content';
-    trackedGroupsEl.innerHTML = '<p class="placeholder-text">No groups added yet. Add groups in Settings.</p>';
+    trackedGroupsEl.innerHTML = '<p class="placeholder-text">No groups detected yet. Visit Facebook group pages or add demo data in Settings.</p>';
   } else {
     trackedGroupsEl.className = 'list-content';
-    trackedGroupsEl.innerHTML = groupsList
+    trackedGroupsEl.innerHTML = detectedGroupsList
       .map(
         (g) =>
           `<div class="list-item group-item">
             <a class="group-name" href="${escapeHtml(g.url || '#')}" target="_blank" rel="noopener">${escapeHtml(g.name || '')}</a>
-            <span class="group-status">${g.selected ? 'Tracking enabled' : 'Detected, not selected'}</span>
+            <span class="group-status">${isTracked(g.id) ? 'Tracking enabled' : 'Detected, not selected'}</span>
           </div>`
       )
       .join('');

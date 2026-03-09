@@ -1,12 +1,13 @@
 // Groopa storage service — shared helpers for chrome.storage.sync
 
-const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext'];
+const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detectedGroups', 'detections', 'activityLog', 'lastFacebookContext'];
 
 const DEFAULTS = {
   isPaidUser: false,
   keywords: [],
   soundEnabled: true,
   trackedGroups: [],
+  detectedGroups: [],
   detections: [],
   activityLog: [],
   lastFacebookContext: null,
@@ -37,6 +38,7 @@ async function getSettings() {
     keywords: Array.isArray(raw.keywords) ? raw.keywords : DEFAULTS.keywords,
     soundEnabled: raw.soundEnabled !== false,
     trackedGroups: Array.isArray(raw.trackedGroups) ? raw.trackedGroups : DEFAULTS.trackedGroups,
+    detectedGroups: Array.isArray(raw.detectedGroups) ? raw.detectedGroups : DEFAULTS.detectedGroups,
     detections: Array.isArray(raw.detections) ? raw.detections : DEFAULTS.detections,
     activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : DEFAULTS.activityLog,
     lastFacebookContext: raw.lastFacebookContext != null ? raw.lastFacebookContext : DEFAULTS.lastFacebookContext,
@@ -89,10 +91,48 @@ async function saveDetections(detections) {
 }
 
 /**
- * Clear tracked groups and detections (demo data reset).
+ * @returns {Promise<object[]>}
+ */
+async function getDetectedGroups() {
+  const raw = await getFromStorage(['detectedGroups']);
+  return Array.isArray(raw.detectedGroups) ? raw.detectedGroups : [];
+}
+
+/**
+ * @param {object[]} detectedGroups
+ */
+async function saveDetectedGroups(detectedGroups) {
+  await setInStorage({ detectedGroups: Array.isArray(detectedGroups) ? detectedGroups : [] });
+}
+
+/**
+ * Add or update a group in detectedGroups by id (groupIdentifier).
+ * @param {object} group - { id, name, url, lastSeenAt? }
+ */
+async function upsertDetectedGroup(group) {
+  const id = group && (group.id != null) ? String(group.id) : null;
+  if (!id) return;
+  const list = await getDetectedGroups();
+  const entry = {
+    id,
+    name: group.name != null ? group.name : '',
+    url: group.url != null ? group.url : '',
+    lastSeenAt: group.lastSeenAt != null ? group.lastSeenAt : new Date().toISOString(),
+  };
+  const idx = list.findIndex((g) => String(g.id) === id);
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...entry };
+  } else {
+    list.push(entry);
+  }
+  await saveDetectedGroups(list);
+}
+
+/**
+ * Clear tracked groups, detected groups, and detections (demo data reset).
  */
 async function clearDemoData() {
-  await setInStorage({ trackedGroups: [], detections: [] });
+  await setInStorage({ trackedGroups: [], detectedGroups: [], detections: [] });
 }
 
 /**

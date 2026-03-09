@@ -16,13 +16,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const settings = await getSettings();
         const activityLog = await getActivityLog();
         const lastFacebookContext = await getLastFacebookContext();
-        const selectedCount = settings.trackedGroups.filter((g) => g.selected).length;
+        const detectedGroups = await getDetectedGroups();
+        const selectedCount = settings.trackedGroups.length;
         const latest = activityLog.length > 0 ? activityLog[activityLog.length - 1] : null;
         sendResponse({
           isPaidUser: settings.isPaidUser,
           soundEnabled: settings.soundEnabled,
           keywordCount: settings.keywords.length,
           selectedGroupCount: selectedCount,
+          detectedGroupCount: detectedGroups.length,
           detectionCount: settings.detections.length,
           activityCount: activityLog.length,
           latestActivity: latest,
@@ -63,6 +65,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         await saveLastFacebookContext(context);
         const isGroup = context.isGroupPage === true;
+        if (isGroup && context.groupIdentifier) {
+          await upsertDetectedGroup({
+            id: context.groupIdentifier,
+            name: context.groupName || '',
+            url: context.url || '',
+            lastSeenAt: context.detectedAt || new Date().toISOString(),
+          });
+        }
         await addActivityLogEntry({
           timestamp: context.detectedAt || new Date().toISOString(),
           url: context.url || '',

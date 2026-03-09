@@ -10,15 +10,18 @@ const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessage = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 
-// Current tracked groups (updated when checkboxes change)
+// Current state: detected = all candidates, tracked = ids we are monitoring
+let detectedGroupsList = [];
 let trackedGroupsList = [];
 
 // Demo data for UI testing
-const DEMO_TRACKED_GROUPS = [
-  { id: '1', name: 'Demo Group A', url: 'https://www.facebook.com/groups/demoa', selected: true },
-  { id: '2', name: 'Demo Group B', url: 'https://www.facebook.com/groups/demob', selected: true },
-  { id: '3', name: 'Demo Group C', url: 'https://www.facebook.com/groups/democ', selected: false },
+const DEMO_DETECTED_GROUPS = [
+  { id: '1', name: 'Demo Group A', url: 'https://www.facebook.com/groups/demoa' },
+  { id: '2', name: 'Demo Group B', url: 'https://www.facebook.com/groups/demob' },
+  { id: '3', name: 'Demo Group C', url: 'https://www.facebook.com/groups/democ' },
 ];
+
+const DEMO_TRACKED_GROUP_IDS = ['1', '2']; // which demo groups are "tracked"
 
 const DEMO_DETECTIONS = [
   { id: 'd1', groupName: 'Demo Group A', author: 'Jane Doe', text: 'Has anyone seen the latest alert?', keywordMatched: 'alert', createdAt: '2024-01-15T10:30:00Z' },
@@ -32,18 +35,24 @@ async function loadPage() {
   paidCheckbox.checked = settings.isPaidUser;
   keywordsTextarea.value = Array.isArray(settings.keywords) ? settings.keywords.join('\n') : '';
   soundCheckbox.checked = settings.soundEnabled;
-  trackedGroupsList = settings.trackedGroups.slice();
+  detectedGroupsList = Array.isArray(settings.detectedGroups) ? settings.detectedGroups.slice() : [];
+  trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
   renderDetectedGroups();
 }
 
 loadPage();
 
+function isTracked(groupId) {
+  const id = groupId != null ? String(groupId) : '';
+  return trackedGroupsList.some((g) => String(g.id) === id);
+}
+
 function renderDetectedGroups() {
-  if (trackedGroupsList.length === 0) {
-    detectedGroupsEl.innerHTML = '<p class="groups-empty">No detected groups yet. Load demo data or detect groups from Facebook.</p>';
+  if (detectedGroupsList.length === 0) {
+    detectedGroupsEl.innerHTML = '<p class="groups-empty">No detected groups yet. Visit Facebook group pages or load demo data.</p>';
     return;
   }
-  detectedGroupsEl.innerHTML = trackedGroupsList
+  detectedGroupsEl.innerHTML = detectedGroupsList
     .map(
       (g, index) =>
         `<div class="group-row" data-index="${index}">
@@ -52,8 +61,8 @@ function renderDetectedGroups() {
             <div class="group-url"><a href="${escapeOpt(g.url || '#')}" target="_blank" rel="noopener">${escapeOpt(g.url || '')}</a></div>
           </div>
           <div class="track-option">
-            <input type="checkbox" id="track-${g.id}" ${g.selected ? 'checked' : ''} data-index="${index}" />
-            <label for="track-${g.id}">Track</label>
+            <input type="checkbox" id="track-${index}" ${isTracked(g.id) ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" />
+            <label for="track-${index}">Track</label>
           </div>
         </div>`
     )
@@ -61,9 +70,17 @@ function renderDetectedGroups() {
 
   detectedGroupsEl.querySelectorAll('.track-option input[type="checkbox"]').forEach((cb) => {
     cb.addEventListener('change', async () => {
-      const index = parseInt(cb.dataset.index, 10);
-      if (!isNaN(index) && trackedGroupsList[index]) {
-        trackedGroupsList[index].selected = cb.checked;
+      const id = cb.dataset.id;
+      const name = cb.dataset.name || '';
+      const url = cb.dataset.url || '';
+      if (!id) return;
+      if (cb.checked) {
+        if (!trackedGroupsList.some((g) => String(g.id) === id)) {
+          trackedGroupsList.push({ id, name, url });
+          await saveTrackedGroups(trackedGroupsList);
+        }
+      } else {
+        trackedGroupsList = trackedGroupsList.filter((g) => String(g.id) !== id);
         await saveTrackedGroups(trackedGroupsList);
       }
     });
@@ -110,14 +127,17 @@ function showDemoMessage(text) {
 }
 
 loadDemoBtn.addEventListener('click', async () => {
-  trackedGroupsList = DEMO_TRACKED_GROUPS.slice();
-  await saveTrackedGroups(DEMO_TRACKED_GROUPS);
+  detectedGroupsList = DEMO_DETECTED_GROUPS.slice();
+  trackedGroupsList = DEMO_DETECTED_GROUPS.filter((g) => DEMO_TRACKED_GROUP_IDS.indexOf(String(g.id)) !== -1).map((g) => ({ id: g.id, name: g.name, url: g.url }));
+  await saveDetectedGroups(detectedGroupsList);
+  await saveTrackedGroups(trackedGroupsList);
   await saveDetections(DEMO_DETECTIONS);
   renderDetectedGroups();
   showDemoMessage('Demo data loaded. Open the popup to see it.');
 });
 
 clearDemoBtn.addEventListener('click', async () => {
+  detectedGroupsList = [];
   trackedGroupsList = [];
   await clearDemoData();
   renderDetectedGroups();
