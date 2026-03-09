@@ -39,6 +39,22 @@
       </div>
     </section>
 
+    <section class="setup-section" aria-label="Get started">
+      <h2 class="setup-section-title">Get started</h2>
+      <div class="setup-block">
+        <h3 class="setup-block-title">Tracked keywords</h3>
+        <p class="setup-block-hint">Add keywords in Settings. Groopa will alert you when these appear in your tracked groups.</p>
+        <div id="keywords-chips" class="chips"></div>
+      </div>
+      <div class="setup-block">
+        <h3 class="setup-block-title">Tracked groups</h3>
+        <div id="tracked-groups" class="placeholder-content">
+          <p class="placeholder-title">No Facebook groups detected yet</p>
+          <p class="placeholder-text">Visit Facebook groups you are already a member of or join new ones. Groopa will automatically detect them. Once a group appears here, click Track to enable monitoring.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="inbox-section">
       <h2 class="inbox-heading">INBOX</h2>
       <p class="inbox-subtitle">Manage your leads here</p>
@@ -64,20 +80,10 @@
 
     <section class="collapsible-section">
       <button type="button" id="toggle-more" class="collapsible-toggle" aria-expanded="false">
-        <span class="collapsible-toggle-text">Setup &amp; debug</span>
+        <span class="collapsible-toggle-text">Debug &amp; technical details</span>
         <span class="collapsible-toggle-icon" aria-hidden="true">&#9660;</span>
       </button>
       <div id="collapsible-content" class="collapsible-content" hidden>
-        <div class="section">
-          <h2 class="section-title">Tracked keywords</h2>
-          <div id="keywords-chips" class="chips"></div>
-        </div>
-        <div class="section">
-          <h2 class="section-title">Tracked groups</h2>
-          <div id="tracked-groups" class="placeholder-content">
-            <p class="placeholder-text">No groups added yet. Add groups in Settings.</p>
-          </div>
-        </div>
         <div class="section">
           <h2 class="section-title">Facebook context</h2>
           <div id="facebook-context" class="placeholder-content">

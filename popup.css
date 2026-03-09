@@ -185,6 +185,53 @@ body {
   color: #888;
 }
 
+/* Get started / onboarding (main popup) */
+.setup-section {
+  margin-bottom: 18px;
+  padding: 14px 0;
+  border-top: 1px solid #eee;
+}
+
+.setup-section-title {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #444;
+}
+
+.setup-block {
+  margin-bottom: 14px;
+}
+
+.setup-block:last-child {
+  margin-bottom: 0;
+}
+
+.setup-block-title {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.setup-block-hint {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.setup-block .placeholder-content .placeholder-title {
+  margin-bottom: 6px;
+}
+
+.setup-block .placeholder-content .placeholder-text {
+  margin: 0;
+  line-height: 1.45;
+}
+
 /* Inbox: single-column full width */
 .inbox-section {
   margin-bottom: 16px;
