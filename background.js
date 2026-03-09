@@ -70,6 +70,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             id: context.groupIdentifier,
             name: context.groupName || '',
             url: context.url || '',
+            slug: context.groupIdentifier,
+            source: 'facebook_page',
             lastSeenAt: context.detectedAt || new Date().toISOString(),
           });
         }

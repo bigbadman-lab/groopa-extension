@@ -143,11 +143,14 @@ async function loadAndRender() {
     trackedGroupsEl.className = 'list-content';
     trackedGroupsEl.innerHTML = detectedGroupsList
       .map(
-        (g) =>
-          `<div class="list-item group-item">
+        (g) => {
+          const lastSeen = g.lastSeenAt ? formatDate(g.lastSeenAt) : '—';
+          return `<div class="list-item group-item">
             <a class="group-name" href="${escapeHtml(g.url || '#')}" target="_blank" rel="noopener">${escapeHtml(g.name || '')}</a>
             <span class="group-status">${isTracked(g.id) ? 'Tracking enabled' : 'Detected, not selected'}</span>
-          </div>`
+            <span class="group-last-seen">Last seen: ${escapeHtml(lastSeen)}</span>
+          </div>`;
+        }
       )
       .join('');
   }

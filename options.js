@@ -15,10 +15,11 @@ let detectedGroupsList = [];
 let trackedGroupsList = [];
 
 // Demo data for UI testing
+const DEMO_NOW = new Date().toISOString();
 const DEMO_DETECTED_GROUPS = [
-  { id: '1', name: 'Demo Group A', url: 'https://www.facebook.com/groups/demoa' },
-  { id: '2', name: 'Demo Group B', url: 'https://www.facebook.com/groups/demob' },
-  { id: '3', name: 'Demo Group C', url: 'https://www.facebook.com/groups/democ' },
+  { id: '1', name: 'Demo Group A', url: 'https://www.facebook.com/groups/demoa', normalizedKey: '1', slug: 'demoa', source: 'demo', firstDetectedAt: DEMO_NOW, lastSeenAt: DEMO_NOW },
+  { id: '2', name: 'Demo Group B', url: 'https://www.facebook.com/groups/demob', normalizedKey: '2', slug: 'demob', source: 'demo', firstDetectedAt: DEMO_NOW, lastSeenAt: DEMO_NOW },
+  { id: '3', name: 'Demo Group C', url: 'https://www.facebook.com/groups/democ', normalizedKey: '3', slug: 'democ', source: 'demo', firstDetectedAt: DEMO_NOW, lastSeenAt: DEMO_NOW },
 ];
 
 const DEMO_TRACKED_GROUP_IDS = ['1', '2']; // which demo groups are "tracked"
@@ -52,6 +53,15 @@ function renderDetectedGroups() {
     detectedGroupsEl.innerHTML = '<p class="groups-empty">No detected groups yet. Visit Facebook group pages or load demo data.</p>';
     return;
   }
+  function formatOptDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      return iso;
+    }
+  }
   detectedGroupsEl.innerHTML = detectedGroupsList
     .map(
       (g, index) =>
@@ -59,6 +69,7 @@ function renderDetectedGroups() {
           <div class="group-info">
             <div class="group-name">${escapeOpt(g.name || '')}</div>
             <div class="group-url"><a href="${escapeOpt(g.url || '#')}" target="_blank" rel="noopener">${escapeOpt(g.url || '')}</a></div>
+            <div class="group-meta">Source: ${escapeOpt(g.source || '—')} · Last seen: ${formatOptDate(g.lastSeenAt)}</div>
           </div>
           <div class="track-option">
             <input type="checkbox" id="track-${index}" ${isTracked(g.id) ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" />

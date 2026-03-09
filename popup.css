@@ -206,6 +206,13 @@ body {
   color: #666;
 }
 
+.group-last-seen {
+  font-size: 11px;
+  color: #888;
+  display: block;
+  margin-top: 2px;
+}
+
 .detection-item {
   display: flex;
   flex-direction: column;

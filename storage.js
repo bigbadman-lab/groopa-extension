@@ -105,25 +105,128 @@ async function saveDetectedGroups(detectedGroups) {
   await setInStorage({ detectedGroups: Array.isArray(detectedGroups) ? detectedGroups : [] });
 }
 
+const UNKNOWN_GROUP_NAME = 'Unknown group';
+
 /**
- * Add or update a group in detectedGroups by id (groupIdentifier).
- * @param {object} group - { id, name, url, lastSeenAt? }
+ * Normalize a Facebook group URL to a canonical form (no query, no trailing slash).
+ * @param {string} url
+ * @returns {string}
+ */
+function normalizeFacebookGroupUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url.trim());
+    if (u.hostname.indexOf('facebook.com') === -1) return url;
+    const path = u.pathname.replace(/\/+$/, '') || '/';
+    const match = path.match(/\/groups\/([^/]+)/i);
+    if (!match) return url;
+    const segment = match[1];
+    return 'https://www.facebook.com/groups/' + segment;
+  } catch (_) {
+    return url;
+  }
+}
+
+/**
+ * Get the slug or id segment from a Facebook group URL path.
+ * @param {string} url
+ * @returns {string}
+ */
+function getSlugFromGroupUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url.trim());
+    const match = u.pathname.match(/\/groups\/([^/]+)/i);
+    return match ? match[1] : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * Build a stable key for deduping (id or slug, lowercased).
+ * @param {string} id
+ * @param {string} slug
+ * @param {string} url
+ * @returns {string}
+ */
+function getNormalizedKey(id, slug, url) {
+  if (id != null && String(id).trim() !== '') return String(id).trim().toLowerCase();
+  if (slug != null && String(slug).trim() !== '') return String(slug).trim().toLowerCase();
+  const fromUrl = getSlugFromGroupUrl(url);
+  return fromUrl ? fromUrl.toLowerCase() : '';
+}
+
+/**
+ * Prefer the better name (non-empty and not "Unknown group").
+ * @param {string} existing
+ * @param {string} incoming
+ * @returns {string}
+ */
+function preferBetterName(existing, incoming) {
+  const hasExisting = existing != null && String(existing).trim() !== '' && String(existing).trim() !== UNKNOWN_GROUP_NAME;
+  const hasIncoming = incoming != null && String(incoming).trim() !== '' && String(incoming).trim() !== UNKNOWN_GROUP_NAME;
+  if (hasIncoming) return String(incoming).trim();
+  if (hasExisting) return String(existing).trim();
+  return (incoming != null && String(incoming).trim()) ? String(incoming).trim() : (existing != null ? String(existing).trim() : '');
+}
+
+/**
+ * Add or update a group in detectedGroups. Dedupes by id, normalizedKey, normalized URL, and slug.
+ * Keeps firstDetectedAt stable; updates lastSeenAt; prefers better names over "Unknown group".
+ * @param {object} group - { id, name, url, slug?, source?, firstDetectedAt?, lastSeenAt? }
  */
 async function upsertDetectedGroup(group) {
-  const id = group && (group.id != null) ? String(group.id) : null;
-  if (!id) return;
+  if (!group || (group.id == null && !group.url)) return;
+  const now = new Date().toISOString();
+  const rawUrl = group.url != null ? group.url : '';
+  const normalizedUrl = normalizeFacebookGroupUrl(rawUrl);
+  const slug = (group.slug != null && String(group.slug).trim() !== '') ? String(group.slug).trim() : getSlugFromGroupUrl(rawUrl || normalizedUrl);
+  const id = group.id != null ? String(group.id).trim() : slug;
+  if (!id && !slug) return;
+  const normalizedKey = getNormalizedKey(id, slug, rawUrl || normalizedUrl);
+  if (!normalizedKey) return;
+
   const list = await getDetectedGroups();
-  const entry = {
-    id,
-    name: group.name != null ? group.name : '',
-    url: group.url != null ? group.url : '',
-    lastSeenAt: group.lastSeenAt != null ? group.lastSeenAt : new Date().toISOString(),
-  };
-  const idx = list.findIndex((g) => String(g.id) === id);
+  const lastSeenAt = group.lastSeenAt != null ? group.lastSeenAt : now;
+  const source = group.source != null ? group.source : 'facebook_page';
+
+  function matchesExisting(g) {
+    if (normalizedKey && getNormalizedKey(g.id, g.slug, g.url).toLowerCase() === normalizedKey) return true;
+    if (id && String(g.id).toLowerCase() === id.toLowerCase()) return true;
+    if (slug && g.slug && String(g.slug).toLowerCase() === slug.toLowerCase()) return true;
+    if (normalizedUrl && normalizeFacebookGroupUrl(g.url || '') === normalizedUrl) return true;
+    return false;
+  }
+
+  const idx = list.findIndex(matchesExisting);
+  const displayUrl = normalizedUrl || rawUrl || '';
+  const displayName = group.name != null ? String(group.name).trim() : '';
+
   if (idx >= 0) {
-    list[idx] = { ...list[idx], ...entry };
+    const existing = list[idx];
+    const name = preferBetterName(existing.name, displayName);
+    list[idx] = {
+      id: existing.id || id,
+      name: name || existing.name || '',
+      url: displayUrl || existing.url || '',
+      normalizedKey: normalizedKey,
+      slug: slug || existing.slug || '',
+      source: existing.source || source,
+      firstDetectedAt: existing.firstDetectedAt || now,
+      lastSeenAt,
+    };
   } else {
-    list.push(entry);
+    list.push({
+      id: id || slug,
+      name: displayName || '',
+      url: displayUrl,
+      normalizedKey,
+      slug: slug || '',
+      source,
+      firstDetectedAt: group.firstDetectedAt != null ? group.firstDetectedAt : now,
+      lastSeenAt,
+    });
   }
   await saveDetectedGroups(list);
 }
