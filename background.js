@@ -23,6 +23,35 @@ function makeDetectionFingerprint(pageUrl, normalizedPreview, matchedKeywords) {
   return (pageUrl || '') + '|' + preview + '|' + kws;
 }
 
+/**
+ * Returns true if the current Facebook context is a group that the user is tracking.
+ * Uses group ID, slug from URL, and normalized URL (storage.js helpers).
+ * @param {object|null} context - lastFacebookContext (isGroupPage, groupIdentifier, url)
+ * @param {object[]} trackedGroups - list of { id, name, url }
+ */
+function isCurrentGroupTracked(context, trackedGroups) {
+  if (!context || context.isGroupPage !== true) return false;
+  if (!Array.isArray(trackedGroups) || trackedGroups.length === 0) return false;
+
+  const currentId = (context.groupIdentifier != null && String(context.groupIdentifier).trim()) ? String(context.groupIdentifier).trim().toLowerCase() : '';
+  const currentUrl = context.url != null ? context.url : '';
+  const currentNormalized = normalizeFacebookGroupUrl(currentUrl);
+  const currentSlug = getSlugFromGroupUrl(currentUrl) || currentId;
+
+  for (let i = 0; i < trackedGroups.length; i++) {
+    const t = trackedGroups[i];
+    const trackedId = (t.id != null && String(t.id).trim()) ? String(t.id).trim().toLowerCase() : '';
+    const trackedUrl = t.url != null ? t.url : '';
+    const trackedNormalized = normalizeFacebookGroupUrl(trackedUrl);
+    const trackedSlug = (t.slug != null && String(t.slug).trim()) ? String(t.slug).trim().toLowerCase() : getSlugFromGroupUrl(trackedUrl).toLowerCase();
+
+    if (currentId && trackedId && currentId === trackedId) return true;
+    if (currentSlug && trackedSlug && currentSlug.toLowerCase() === trackedSlug) return true;
+    if (currentNormalized && trackedNormalized && currentNormalized === trackedNormalized) return true;
+  }
+  return false;
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Groopa] Extension installed');
   migrateOperationalKeysFromSyncToLocal().then(() => {
@@ -137,8 +166,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           count: list.length,
         });
 
-        const keywords = (await getSettings()).keywords;
+        const settings = await getSettings();
         const ctx = await getLastFacebookContext();
+        const trackedGroups = settings.trackedGroups || [];
+
+        if (!isCurrentGroupTracked(ctx, trackedGroups)) {
+          sendResponse({ ok: true });
+          return;
+        }
+
+        const keywords = settings.keywords;
         const groupName = (ctx && ctx.isGroupPage && ctx.groupName) ? ctx.groupName : '';
         const groupIdentifier = (ctx && ctx.isGroupPage && ctx.groupIdentifier) ? ctx.groupIdentifier : '';
         const now = new Date().toISOString();
