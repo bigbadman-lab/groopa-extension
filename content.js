@@ -66,7 +66,53 @@
   const MAX_PREVIEW_LEN = 150;
   const MAX_CANDIDATES = 10;
   const MIN_TEXT_LEN = 25; // filter out empty or very short text
+  const MIN_UNIQUENESS = 0.4; // unique words / total words (filters "Facebook Facebook Facebook")
   const RETRY_DELAYS_MS = [1500, 4000, 8000];
+
+  // Phrases that indicate feed controls or UI chrome, not real post content
+  const JUNK_PHRASES = [
+    'sort group feed',
+    'sort feed by',
+    'most relevant',
+    'recent',
+    'top posts',
+    'see more',
+    'see less',
+    'write a comment',
+    'sponsored',
+    'promoted',
+    'like · comment · share',
+    'like comment share',
+  ];
+
+  function isLikelyRealPostText(text) {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim();
+    if (t.length < MIN_TEXT_LEN) return false;
+
+    const lower = t.toLowerCase();
+    for (var p = 0; p < JUNK_PHRASES.length; p++) {
+      if (lower.indexOf(JUNK_PHRASES[p]) !== -1) return false;
+    }
+
+    var words = t.split(/\s+/).filter(function (w) { return w.length > 0; });
+    if (words.length >= 3) {
+      var first = words[0].toLowerCase();
+      var allSame = words.every(function (w) { return w.toLowerCase() === first; });
+      if (allSame) return false;
+    }
+    if (words.length >= 5) {
+      var seen = {};
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i].toLowerCase();
+        seen[w] = (seen[w] || 0) + 1;
+      }
+      var uniqueCount = Object.keys(seen).length;
+      var ratio = uniqueCount / words.length;
+      if (ratio < MIN_UNIQUENESS) return false;
+    }
+    return true;
+  }
 
   // Try these in order; first selector with nodes that have readable text wins
   const POST_SELECTORS = [
@@ -85,7 +131,7 @@
   function countNodesWithText(nodes) {
     var count = 0;
     for (var j = 0; j < nodes.length; j++) {
-      if (getTextFromNode(nodes[j]).length >= MIN_TEXT_LEN) count++;
+      if (isLikelyRealPostText(getTextFromNode(nodes[j]))) count++;
     }
     return count;
   }
@@ -120,10 +166,14 @@
       const node = nodes[i];
       const cleaned = getTextFromNode(node);
       const len = cleaned.length;
+      const preview = (cleaned.slice(0, 80) || '(empty)') + (cleaned.length > 80 ? '…' : '');
 
-      console.log(PREFIX, 'article', i + 1, '— raw length:', len, 'cleaned preview:', (cleaned.slice(0, 80) || '(empty)') + (cleaned.length > 80 ? '…' : ''));
+      console.log(PREFIX, 'article', i + 1, '— raw length:', len, 'cleaned preview:', preview);
 
-      if (len < MIN_TEXT_LEN) continue;
+      if (!isLikelyRealPostText(cleaned)) {
+        console.log(PREFIX, 'article', i + 1, '— skipped (short, UI chrome, or repetitive junk)');
+        continue;
+      }
       const key = cleaned.slice(0, 200).toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
