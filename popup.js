@@ -162,7 +162,7 @@ async function loadAndRender() {
   // Tracked groups list: show detected groups with Track / Untrack buttons
   if (detectedGroupsList.length === 0) {
     trackedGroupsEl.className = 'placeholder-content';
-    trackedGroupsEl.innerHTML = '<p class="placeholder-text">Visit Facebook groups you are a member of and Groopa will automatically detect them.</p>';
+    trackedGroupsEl.innerHTML = '<p class="placeholder-title">No Facebook groups detected yet</p><p class="placeholder-text">Visit Facebook groups you are already a member of or join new ones. Groopa will automatically detect them. Once a group appears here, click Track to enable monitoring.</p>';
   } else {
     trackedGroupsEl.className = 'list-content';
     trackedGroupsEl.innerHTML = detectedGroupsList

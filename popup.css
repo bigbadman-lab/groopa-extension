@@ -152,6 +152,13 @@ body {
   border: 1px solid #eee;
 }
 
+.placeholder-title {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
 .placeholder-text {
   margin: 0;
   font-size: 12px;
