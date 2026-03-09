@@ -165,6 +165,16 @@ function renderMonitorStatus(settings) {
   if (monitorWindowHint) {
     monitorWindowHint.hidden = enabled;
   }
+  if (monitorValidationMsg) {
+    monitorValidationMsg.hidden = count > 0;
+    if (count === 0) {
+      const body = monitorValidationMsg.querySelector('.monitor-validation-body');
+      if (body) {
+        body.textContent =
+          'Groopa needs at least one tracked Facebook group before monitoring can begin. Visit a group on Facebook so Groopa can detect it, or add one manually.';
+      }
+    }
+  }
 }
 
 async function refreshMonitorStatus() {
@@ -455,15 +465,29 @@ clearDemoBtn.addEventListener('click', async () => {
 
 if (monitorStartBtn) {
   monitorStartBtn.addEventListener('click', async () => {
-    if (trackedGroupsList.length === 0) {
+    const settings = await getSettings();
+    const tracked = Array.isArray(settings.trackedGroups) ? settings.trackedGroups : [];
+    if (tracked.length === 0) {
       if (monitorValidationMsg) monitorValidationMsg.hidden = false;
       return;
     }
     try {
-      await chrome.runtime.sendMessage({ type: 'START_MONITORING' });
+      const reply = await chrome.runtime.sendMessage({ type: 'START_MONITORING' });
+      if (reply && reply.ok === false && reply.error) {
+        if (monitorValidationMsg) {
+          monitorValidationMsg.querySelector('.monitor-validation-body').textContent = reply.error;
+          monitorValidationMsg.hidden = false;
+        }
+        return;
+      }
       await refreshMonitorStatus();
     } catch (e) {
       console.error('Start monitoring failed', e);
+      if (monitorValidationMsg) {
+        monitorValidationMsg.querySelector('.monitor-validation-body').textContent =
+          'Could not start monitoring. Try again or add a tracked group first.';
+        monitorValidationMsg.hidden = false;
+      }
     }
   });
 }
