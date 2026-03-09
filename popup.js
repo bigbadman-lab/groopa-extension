@@ -47,18 +47,24 @@ chrome.storage.sync.get(
     const groupsList = Array.isArray(trackedGroups) ? trackedGroups : [];
     const detectionsList = Array.isArray(detections) ? detections : [];
 
+    const selectedCount = groupsList.filter((g) => g.selected).length;
+
     // Hero status
     if (!isPaidUser) {
       heroStatus.textContent = 'Paid access required';
       heroDetail.textContent = 'Enable paid user access in Settings to use Groopa.';
     } else {
       heroStatus.textContent = 'Groopa is ready';
-      heroDetail.textContent = soundEnabled ? 'Sound notifications on' : 'Sound notifications off';
+      const parts = [];
+      if (soundEnabled) parts.push('Sound on');
+      else parts.push('Sound off');
+      parts.push(`${selectedCount} group${selectedCount === 1 ? '' : 's'} selected for monitoring`);
+      heroDetail.textContent = parts.join(' · ');
     }
 
-    // Summary counts
+    // Summary counts (only selected groups in Tracked Groups card)
     countKeywords.textContent = keywordList.length;
-    countGroups.textContent = groupsList.length;
+    countGroups.textContent = selectedCount;
     countDetections.textContent = detectionsList.length;
 
     // Keyword chips (use textContent so no escaping needed)
@@ -70,7 +76,7 @@ chrome.storage.sync.get(
       keywordsChips.appendChild(chip);
     });
 
-    // Tracked groups list
+    // Tracked groups list (all detected groups; show tracking status)
     if (groupsList.length === 0) {
       trackedGroupsEl.className = 'placeholder-content';
       trackedGroupsEl.innerHTML = '<p class="placeholder-text">No groups added yet. Add groups in Settings.</p>';
@@ -81,7 +87,7 @@ chrome.storage.sync.get(
           (g) =>
             `<div class="list-item group-item">
               <a class="group-name" href="${escapeHtml(g.url || '#')}" target="_blank" rel="noopener">${escapeHtml(g.name || '')}</a>
-              ${g.selected ? '<span class="badge">tracking</span>' : ''}
+              <span class="group-status">${g.selected ? 'Tracking enabled' : 'Detected, not selected'}</span>
             </div>`
         )
         .join('');

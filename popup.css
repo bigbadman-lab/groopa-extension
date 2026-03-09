@@ -201,6 +201,11 @@ body {
   font-weight: 500;
 }
 
+.group-status {
+  font-size: 11px;
+  color: #666;
+}
+
 .detection-item {
   display: flex;
   flex-direction: column;
