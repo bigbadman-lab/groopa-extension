@@ -157,3 +157,68 @@ body {
   font-size: 12px;
   color: #888;
 }
+
+/* List sections (tracked groups, detections) */
+.list-content {
+  background: #f8f8f8;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.list-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.group-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.group-name {
+  color: #1877f2;
+  text-decoration: none;
+}
+
+.group-name:hover {
+  text-decoration: underline;
+}
+
+.badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e8eeff;
+  color: #1a3a6e;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.detection-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detection-meta {
+  font-size: 11px;
+  color: #666;
+}
+
+.detection-text {
+  color: #333;
+  line-height: 1.35;
+}
+
+.detection-keyword {
+  font-size: 11px;
+  color: #1877f2;
+  font-weight: 500;
+}

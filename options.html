@@ -44,7 +44,10 @@
       cursor: pointer;
     }
     .btn:hover { background: #166fe5; }
+    .btn-secondary { background: #555; }
+    .btn-secondary:hover { background: #444; }
     #save-message { margin-top: 12px; font-size: 13px; color: #0a0; }
+    #demo-message { color: #0a0; }
   </style>
 </head>
 <body>
@@ -67,6 +70,13 @@
 
   <button id="save-btn" class="btn">Save Settings</button>
   <p id="save-message" style="display: none;">Settings saved.</p>
+
+  <h2 style="margin: 24px 0 12px 0; font-size: 16px;">Demo data (for UI testing)</h2>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button id="load-demo-btn" class="btn btn-secondary">Load Demo Data</button>
+    <button id="clear-demo-btn" class="btn btn-secondary">Clear Demo Data</button>
+  </div>
+  <p id="demo-message" style="display: none; margin-top: 8px; font-size: 13px;"></p>
 
   <script src="options.js"></script>
 </body>
