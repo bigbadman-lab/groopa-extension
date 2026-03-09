@@ -19,6 +19,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const detectedGroups = await getDetectedGroups();
         const selectedCount = settings.trackedGroups.length;
         const latest = activityLog.length > 0 ? activityLog[activityLog.length - 1] : null;
+        const pagePostCandidates = await getPagePostCandidates();
         sendResponse({
           isPaidUser: settings.isPaidUser,
           soundEnabled: settings.soundEnabled,
@@ -26,6 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           selectedGroupCount: selectedCount,
           detectedGroupCount: detectedGroups.length,
           detectionCount: settings.detections.length,
+          pagePostCandidateCount: pagePostCandidates.length,
           activityCount: activityLog.length,
           latestActivity: latest,
           lastFacebookContext,
@@ -86,6 +88,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[Groopa] FACEBOOK_CONTEXT_DETECTED error', err);
+        sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'PAGE_POST_CANDIDATES_DETECTED') {
+    (async () => {
+      try {
+        const MAX_CANDIDATES = 10;
+        const raw = message.candidates || [];
+        const list = Array.isArray(raw) ? raw.slice(0, MAX_CANDIDATES) : [];
+        await savePagePostCandidates(list);
+        await addActivityLogEntry({
+          timestamp: new Date().toISOString(),
+          url: message.url != null ? message.url : (sender.tab && sender.tab.url ? sender.tab.url : ''),
+          kind: 'page_post_candidates_captured',
+          count: list.length,
+        });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] PAGE_POST_CANDIDATES_DETECTED error', err);
         sendResponse({ error: String(err.message) });
       }
     })();

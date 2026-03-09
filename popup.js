@@ -9,6 +9,7 @@ const keywordsChips = document.getElementById('keywords-chips');
 const trackedGroupsEl = document.getElementById('tracked-groups');
 const recentDetectionsEl = document.getElementById('recent-detections');
 const facebookContextEl = document.getElementById('facebook-context');
+const visiblePostCandidatesEl = document.getElementById('visible-post-candidates');
 const openSettingsBtn = document.getElementById('open-settings');
 
 // Escape HTML so user content is safe to show
@@ -47,12 +48,14 @@ function getExtensionStatus() {
   });
 }
 
-// Build hero detail line from status; if group page detected, mention it
+// Build hero detail line from status; if group page detected, mention it and candidate count
 function heroDetailFromStatus(status) {
   const parts = [];
   const ctx = status.lastFacebookContext;
   if (ctx && ctx.isGroupPage && (ctx.groupName || ctx.groupIdentifier)) {
     parts.push('Viewing group: ' + (ctx.groupName || ctx.groupIdentifier));
+    const cand = status.pagePostCandidateCount != null ? status.pagePostCandidateCount : 0;
+    if (cand > 0) parts.push(cand + ' post candidate' + (cand === 1 ? '' : 's') + ' on page');
   }
   parts.push(status.soundEnabled ? 'Sound on' : 'Sound off');
   const sel = status.selectedGroupCount != null ? status.selectedGroupCount : 0;
@@ -81,6 +84,7 @@ async function loadAndRender() {
   const detectedGroupsList = settings.detectedGroups || [];
   const trackedGroupsList = settings.trackedGroups || [];
   const detectionsList = settings.detections;
+  const pagePostCandidatesList = settings.pagePostCandidates || [];
 
   function isTracked(groupId) {
     const id = groupId != null ? String(groupId) : '';
@@ -100,9 +104,14 @@ async function loadAndRender() {
     // Fallback: compute from settings
     const selectedCount = trackedGroupsList.length;
     const detectedCount = detectedGroupsList.length;
+    const ctxFallback = settings.lastFacebookContext;
+    let fallbackDetail = `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} of ${detectedCount} groups tracked (background unavailable)`;
+    if (ctxFallback && ctxFallback.isGroupPage && pagePostCandidatesList.length > 0) {
+      fallbackDetail = pagePostCandidatesList.length + ' post candidate' + (pagePostCandidatesList.length === 1 ? '' : 's') + ' on page · ' + fallbackDetail;
+    }
     heroStatus.textContent = settings.isPaidUser ? 'Groopa is ready' : 'Paid access required';
     heroDetail.textContent = settings.isPaidUser
-      ? `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} of ${detectedCount} groups tracked (background unavailable)`
+      ? fallbackDetail
       : 'Enable paid user access in Settings to use Groopa.';
     countKeywords.textContent = keywordList.length;
     countGroups.textContent = selectedCount;
@@ -124,6 +133,22 @@ async function loadAndRender() {
       if (ctx.groupIdentifier) rows.push('<div class="list-item detection-item"><div class="detection-meta">Group ID</div><div class="detection-keyword">' + escapeHtml(ctx.groupIdentifier) + '</div></div>');
     }
     facebookContextEl.innerHTML = rows.join('');
+  }
+
+  // Visible post candidates panel
+  if (pagePostCandidatesList.length === 0) {
+    visiblePostCandidatesEl.className = 'placeholder-content';
+    visiblePostCandidatesEl.innerHTML = '<p class="placeholder-text">No post candidates yet. Open a Facebook group page to capture visible posts.</p>';
+  } else {
+    visiblePostCandidatesEl.className = 'list-content';
+    visiblePostCandidatesEl.innerHTML = pagePostCandidatesList
+      .map(
+        (c) =>
+          `<div class="list-item detection-item">
+            <div class="detection-text">${escapeHtml((c && c.textPreview) ? c.textPreview : '')}</div>
+          </div>`
+      )
+      .join('');
   }
 
   // Keyword chips

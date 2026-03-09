@@ -1,6 +1,6 @@
 // Groopa storage service — shared helpers for chrome.storage.sync
 
-const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detectedGroups', 'detections', 'activityLog', 'lastFacebookContext'];
+const STORAGE_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detectedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -11,6 +11,7 @@ const DEFAULTS = {
   detections: [],
   activityLog: [],
   lastFacebookContext: null,
+  pagePostCandidates: [],
 };
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
@@ -42,6 +43,7 @@ async function getSettings() {
     detections: Array.isArray(raw.detections) ? raw.detections : DEFAULTS.detections,
     activityLog: Array.isArray(raw.activityLog) ? raw.activityLog : DEFAULTS.activityLog,
     lastFacebookContext: raw.lastFacebookContext != null ? raw.lastFacebookContext : DEFAULTS.lastFacebookContext,
+    pagePostCandidates: Array.isArray(raw.pagePostCandidates) ? raw.pagePostCandidates : DEFAULTS.pagePostCandidates,
   };
 }
 
@@ -277,4 +279,19 @@ async function getLastFacebookContext() {
  */
 async function saveLastFacebookContext(lastFacebookContext) {
   await setInStorage({ lastFacebookContext: lastFacebookContext != null ? lastFacebookContext : null });
+}
+
+/**
+ * @returns {Promise<object[]>} Page post candidates (e.g. [{ textPreview }])
+ */
+async function getPagePostCandidates() {
+  const raw = await getFromStorage(['pagePostCandidates']);
+  return Array.isArray(raw.pagePostCandidates) ? raw.pagePostCandidates : [];
+}
+
+/**
+ * @param {object[]} pagePostCandidates
+ */
+async function savePagePostCandidates(pagePostCandidates) {
+  await setInStorage({ pagePostCandidates: Array.isArray(pagePostCandidates) ? pagePostCandidates : [] });
 }
