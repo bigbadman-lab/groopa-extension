@@ -91,11 +91,10 @@ async function loadPage() {
   keywordList = Array.isArray(settings.keywords) ? settings.keywords.slice() : [];
   detectedGroupsList = Array.isArray(settings.detectedGroups) ? settings.detectedGroups.slice() : [];
   trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
-  detectionsList = Array.isArray(settings.detections) ? settings.detections.slice() : [];
 
   renderKeywords();
   renderDetectedGroups();
-  renderInbox();
+  await refreshInboxFromStorage();
   renderMonitorStatus(settings);
   updateAccountPanel(settings.isPaidUser);
 
@@ -546,6 +545,21 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
       p.classList.toggle('panel--active', p.id === 'panel-' + panelId);
     });
   });
+});
+
+/**
+ * Reload detections from storage and re-render the inbox. Used on initial load and when storage changes.
+ */
+async function refreshInboxFromStorage() {
+  const list = await getDetections();
+  detectionsList = Array.isArray(list) ? list.slice() : [];
+  renderInbox();
+}
+
+// When detections change in storage (e.g. new leads from background), update the inbox without refresh
+chrome.storage.onChanged.addListener(function (changes, areaName) {
+  if (areaName !== 'local' || !changes || !changes.detections) return;
+  refreshInboxFromStorage();
 });
 
 // Refresh monitor section (e.g. "Last run: 2 min ago") every 8s so relative time stays current

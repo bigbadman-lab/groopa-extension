@@ -415,6 +415,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const keywords = settings.keywords;
         const groupName = (ctx && ctx.isGroupPage && ctx.groupName) ? ctx.groupName : '';
         const groupIdentifier = (ctx && ctx.isGroupPage && ctx.groupIdentifier) ? ctx.groupIdentifier : '';
+        const groupSlugFromUrl = getSlugFromGroupUrl(pageUrl || '');
         const now = new Date().toISOString();
         const newDetections = [];
 
@@ -425,7 +426,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const matchedKeywords = getMatchingKeywords(normalized, keywords);
           if (matchedKeywords.length === 0) continue;
 
-          const fingerprint = makeDetectionFingerprint(groupIdentifier, pageUrl, normalized, matchedKeywords);
+          const stableGroupKey = groupSlugFromUrl || groupIdentifier;
+          const fingerprint = makeDetectionFingerprint(stableGroupKey, pageUrl, normalized, matchedKeywords);
           newDetections.push({
             matchedKeywords,
             textPreview,
@@ -454,31 +456,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         if (added.length > 0) {
           await updateUnreadBadge();
-          if (settings.soundEnabled !== false) {
-            const d = added[0];
-            const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
-            const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
-            const title = added.length > 1 ? added.length + ' new Groopa leads detected' : 'New Groopa lead detected';
-            const message =
-              added.length > 1
-                ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
-                : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
-            const notificationId = 'groopa-scan-' + Date.now();
-            await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
-            try {
-              const notifTitle = (title && String(title).trim()) ? String(title).trim() : 'Groopa';
-              const notifMessage = (message && String(message).trim()) ? String(message).trim() : 'New lead detected.';
-              const iconUrl = chrome.runtime.getURL('icons/icon128.png');
-              chrome.notifications.create(notificationId, {
-                type: 'basic',
-                iconUrl: iconUrl,
-                title: notifTitle,
-                message: notifMessage,
-                buttons: [{ title: 'Open Lead' }, { title: 'Open Facebook Post' }],
-              });
-            } catch (notifErr) {
-              console.warn('[Groopa] Notification create failed', notifErr);
-            }
+          const d = added[0];
+          const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
+          const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
+          const title = added.length > 1 ? added.length + ' new Groopa leads detected' : 'New Groopa lead detected';
+          const message =
+            added.length > 1
+              ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
+              : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
+          const notificationId = 'groopa-scan-' + Date.now();
+          await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
+          try {
+            const notifTitle = (title && String(title).trim()) ? String(title).trim() : 'Groopa';
+            const notifMessage = (message && String(message).trim()) ? String(message).trim() : 'New lead detected.';
+            const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+            chrome.notifications.create(notificationId, {
+              type: 'basic',
+              iconUrl: iconUrl,
+              title: notifTitle,
+              message: notifMessage,
+              buttons: [{ title: 'Open Lead' }, { title: 'Open Facebook Post' }],
+            });
+          } catch (notifErr) {
+            console.warn('[Groopa] Notification create failed', notifErr);
           }
         }
         sendResponse({ ok: true });
