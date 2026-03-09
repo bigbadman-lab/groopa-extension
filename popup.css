@@ -209,8 +209,21 @@ body {
   margin-bottom: 0;
 }
 
+.setup-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.setup-block-header .btn-track {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
 .setup-block-title {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
   color: #1a1a1a;

@@ -11,6 +11,7 @@ const recentDetectionsEl = document.getElementById('recent-detections');
 const facebookContextEl = document.getElementById('facebook-context');
 const visiblePostCandidatesEl = document.getElementById('visible-post-candidates');
 const openSettingsBtn = document.getElementById('open-settings');
+const keywordsAddBtn = document.getElementById('keywords-add-btn');
 const inboxListEl = document.getElementById('inbox-list');
 const leadDetailViewEl = document.getElementById('lead-detail-view');
 const detectionDetailBack = document.getElementById('lead-detail-back');
@@ -350,7 +351,12 @@ if (toggleMoreBtn && collapsibleContent && collapsibleSection) {
   });
 }
 
-// Open options page
+// Open options page (header settings + keywords Add button)
 openSettingsBtn.addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
+if (keywordsAddBtn) {
+  keywordsAddBtn.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+  });
+}
