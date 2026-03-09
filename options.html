@@ -54,10 +54,28 @@
           <div id="detected-groups" class="groups-list"></div>
         </div>
 
-        <div class="card">
+        <div class="card card-inbox">
           <h3 class="card-title">Inbox</h3>
-          <p class="card-hint">Recent detections from your tracked groups.</p>
-          <div id="inbox-list" class="inbox-list"></div>
+          <p class="card-hint">Recent detections from your tracked groups. Click a lead to view details and generate a reply.</p>
+          <div id="inbox-list-wrap">
+            <div id="inbox-list" class="inbox-list"></div>
+            <div id="inbox-detail" class="inbox-detail" hidden>
+              <button type="button" id="inbox-detail-back" class="btn-link inbox-back">&#8592; Back to list</button>
+              <p class="inbox-detail-group" id="inbox-detail-group"></p>
+              <p class="inbox-detail-time" id="inbox-detail-time"></p>
+              <div class="inbox-detail-post" id="inbox-detail-text"></div>
+              <p class="inbox-detail-keywords" id="inbox-detail-keywords"></p>
+              <button type="button" id="inbox-detail-ai-btn" class="btn btn-primary">Generate AI Reply</button>
+              <div class="inbox-reply-section">
+                <label class="inbox-reply-label">Generated reply</label>
+                <div id="inbox-reply-text" class="inbox-reply-text" aria-readonly="true">Reply will appear here after you click Generate AI Reply.</div>
+                <div class="inbox-reply-actions">
+                  <button type="button" id="inbox-copy-reply" class="btn btn-secondary">Copy Reply</button>
+                  <a id="inbox-open-post" href="#" target="_blank" rel="noopener" class="btn btn-secondary inbox-open-link">Open Facebook Post</a>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

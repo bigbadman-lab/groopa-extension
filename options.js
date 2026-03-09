@@ -11,6 +11,17 @@ const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 const inboxListEl = document.getElementById('inbox-list');
+const inboxListWrap = document.getElementById('inbox-list-wrap');
+const inboxDetailEl = document.getElementById('inbox-detail');
+const inboxDetailBack = document.getElementById('inbox-detail-back');
+const inboxDetailGroup = document.getElementById('inbox-detail-group');
+const inboxDetailTime = document.getElementById('inbox-detail-time');
+const inboxDetailText = document.getElementById('inbox-detail-text');
+const inboxDetailKeywords = document.getElementById('inbox-detail-keywords');
+const inboxDetailAiBtn = document.getElementById('inbox-detail-ai-btn');
+const inboxReplyTextEl = document.getElementById('inbox-reply-text');
+const inboxCopyReplyBtn = document.getElementById('inbox-copy-reply');
+const inboxOpenPostLink = document.getElementById('inbox-open-post');
 const addGroupUrlInput = document.getElementById('add-group-url');
 const addGroupBtn = document.getElementById('add-group-btn');
 const addGroupErrorEl = document.getElementById('add-group-error');
@@ -22,6 +33,8 @@ let detectedGroupsList = [];
 let trackedGroupsList = [];
 let keywordList = [];
 let detectionsList = [];
+let selectedInboxDetection = null;
+let generatedReplyText = '';
 
 const DEMO_NOW = new Date().toISOString();
 const DEMO_DETECTED_GROUPS = [
@@ -236,25 +249,84 @@ function renderInbox() {
   }
   const previewLen = 80;
   inboxListEl.innerHTML = list
-    .map((d) => {
+    .map((d, index) => {
       const groupLabel = escapeOpt(d.groupName || d.groupIdentifier || 'Group');
       const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
       const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
       const keywordLabel = escapeOpt(d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : ''));
       const dateStr = formatOptDate(d.createdAt);
-      const url = d.pageUrl || '';
-      const openLink = url ? `<a href="${escapeOpt(url)}" target="_blank" rel="noopener" class="inbox-row-open">Open</a>` : '';
-      return `<div class="inbox-row">
+      return `<button type="button" class="inbox-row inbox-row-btn" data-index="${index}">
         <div class="inbox-row-main">
           <span class="inbox-row-group">${groupLabel}</span>
           <span class="inbox-row-keyword">${keywordLabel}</span>
           <span class="inbox-row-date">${dateStr}</span>
         </div>
         <div class="inbox-row-preview">${escapeOpt(preview)}</div>
-        ${openLink ? '<div class="inbox-row-actions">' + openLink + '</div>' : ''}
-      </div>`;
+      </button>`;
     })
     .join('');
+
+  inboxListEl.querySelectorAll('.inbox-row-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const index = parseInt(btn.dataset.index, 10);
+      const detection = detectionsList[index];
+      if (detection) showInboxDetail(detection);
+    });
+  });
+}
+
+function showInboxDetail(detection) {
+  selectedInboxDetection = detection;
+  generatedReplyText = '';
+  const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
+  const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
+  if (inboxDetailGroup) inboxDetailGroup.textContent = groupLabel;
+  if (inboxDetailTime) inboxDetailTime.textContent = 'Detected ' + formatOptDate(detection.createdAt);
+  if (inboxDetailText) inboxDetailText.textContent = text || '—';
+  if (inboxDetailKeywords) inboxDetailKeywords.textContent = 'Matched: ' + keywordLabel;
+  if (inboxReplyTextEl) inboxReplyTextEl.textContent = 'Reply will appear here after you click Generate AI Reply.';
+  if (inboxOpenPostLink) {
+    inboxOpenPostLink.href = detection.pageUrl || '#';
+    inboxOpenPostLink.style.display = detection.pageUrl ? 'inline-block' : 'none';
+  }
+  if (inboxListEl) inboxListEl.hidden = true;
+  if (inboxDetailEl) inboxDetailEl.hidden = false;
+}
+
+function showInboxList() {
+  selectedInboxDetection = null;
+  generatedReplyText = '';
+  if (inboxListEl) inboxListEl.hidden = false;
+  if (inboxDetailEl) inboxDetailEl.hidden = true;
+}
+
+if (inboxDetailBack) {
+  inboxDetailBack.addEventListener('click', () => showInboxList());
+}
+
+if (inboxDetailAiBtn) {
+  inboxDetailAiBtn.addEventListener('click', () => {
+    generatedReplyText = 'AI reply will be tailored to your business. This is a placeholder until the AI is connected.';
+    if (inboxReplyTextEl) inboxReplyTextEl.textContent = generatedReplyText;
+  });
+}
+
+if (inboxCopyReplyBtn) {
+  inboxCopyReplyBtn.addEventListener('click', () => {
+    const text = generatedReplyText || (inboxReplyTextEl ? inboxReplyTextEl.textContent : '');
+    if (!text || text.startsWith('Reply will appear')) return;
+    navigator.clipboard.writeText(text).then(() => {
+      inboxCopyReplyBtn.textContent = 'Copied!';
+      setTimeout(() => { inboxCopyReplyBtn.textContent = 'Copy Reply'; }, 1500);
+    }).catch(() => {});
+  });
+}
+
+if (inboxOpenPostLink) {
+  inboxOpenPostLink.addEventListener('click', (e) => {
+    if (!selectedInboxDetection || !selectedInboxDetection.pageUrl) e.preventDefault();
+  });
 }
 
 function showDemoMessage(text) {
