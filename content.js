@@ -211,6 +211,81 @@
     return false;
   });
 
+  // ----- Event-driven rescans (debounced) -----
+  const MUTATION_DEBOUNCE_MS = 2500;
+  const VISIBILITY_DELAY_MS = 500;
+  const VISIBILITY_DEBOUNCE_MS = 2000;
+  const SCROLL_DEBOUNCE_MS = 1500;
+
+  let mutationScanTimer = null;
+  let lastVisibilityScanAt = 0;
+  let visibilityScanTimer = null;
+  let scrollScanTimer = null;
+  let feedObserver = null;
+
+  function scheduleDebouncedMutationScan() {
+    if (mutationScanTimer) clearTimeout(mutationScanTimer);
+    mutationScanTimer = setTimeout(function () {
+      mutationScanTimer = null;
+      runPostCandidateScan('mutation');
+    }, MUTATION_DEBOUNCE_MS);
+  }
+
+  function scheduleVisibilityRescan() {
+    if (visibilityScanTimer) clearTimeout(visibilityScanTimer);
+    visibilityScanTimer = setTimeout(function () {
+      visibilityScanTimer = null;
+      var now = Date.now();
+      if (now - lastVisibilityScanAt >= VISIBILITY_DEBOUNCE_MS) {
+        lastVisibilityScanAt = now;
+        runPostCandidateScan('visibility');
+      }
+    }, VISIBILITY_DELAY_MS);
+  }
+
+  function scheduleDebouncedScrollScan() {
+    if (scrollScanTimer) clearTimeout(scrollScanTimer);
+    scrollScanTimer = setTimeout(function () {
+      scrollScanTimer = null;
+      runPostCandidateScan('scroll');
+    }, SCROLL_DEBOUNCE_MS);
+  }
+
+  function startFeedObserver() {
+    if (feedObserver) return;
+    var root = document.body;
+    if (!root) return;
+    feedObserver = new MutationObserver(function (_mutations) {
+      scheduleDebouncedMutationScan();
+    });
+    feedObserver.observe(root, { childList: true, subtree: true });
+    console.log(PREFIX, 'MutationObserver attached for event-driven rescans');
+  }
+
+  function stopFeedObserver() {
+    if (feedObserver) {
+      feedObserver.disconnect();
+      feedObserver = null;
+      console.log(PREFIX, 'MutationObserver disconnected');
+    }
+  }
+
+  if (document.body) {
+    startFeedObserver();
+  } else {
+    document.addEventListener('DOMContentLoaded', startFeedObserver);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      scheduleVisibilityRescan();
+    }
+  });
+
+  window.addEventListener('scroll', function () {
+    scheduleDebouncedScrollScan();
+  }, { passive: true });
+
   // Run scheduled scans; each sends PAGE_POST_CANDIDATES_DETECTED (background dedupes detections)
   RETRY_DELAYS_MS.forEach(function (delayMs, index) {
     setTimeout(function () {
