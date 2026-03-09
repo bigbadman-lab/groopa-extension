@@ -68,27 +68,57 @@
   const MIN_TEXT_LEN = 25; // filter out empty or very short text
   const RETRY_DELAYS_MS = [1500, 4000, 8000];
 
-  function getPostNodes() {
-    let nodes = document.querySelectorAll('[role="article"]');
-    if (nodes.length > 0) return { nodes, selector: '[role="article"]' };
-    // Fallback: try common Facebook feed story container
-    nodes = document.querySelectorAll('div[data-ad-comet-preview="feed_story"]');
-    if (nodes.length > 0) return { nodes, selector: 'div[data-ad-comet-preview="feed_story"]' };
-    nodes = document.querySelectorAll('div[data-ad-comet-preview]');
-    if (nodes.length > 0) return { nodes, selector: 'div[data-ad-comet-preview]' };
+  // Try these in order; first selector with nodes that have readable text wins
+  const POST_SELECTORS = [
+    '[role="article"]',
+    'div[aria-posinset]',
+    'div[data-pagelet*="FeedUnit"]',
+    'div[role="feed"] > div',
+    'div[data-ad-preview="message"]',
+  ];
+
+  function getTextFromNode(node) {
+    const raw = node.innerText != null ? node.innerText : (node.textContent || '');
+    return raw.trim().replace(/\s+/g, ' ');
+  }
+
+  function countNodesWithText(nodes) {
+    var count = 0;
+    for (var j = 0; j < nodes.length; j++) {
+      if (getTextFromNode(nodes[j]).length >= MIN_TEXT_LEN) count++;
+    }
+    return count;
+  }
+
+  function findBestPostNodes() {
+    for (var s = 0; s < POST_SELECTORS.length; s++) {
+      var selector = POST_SELECTORS[s];
+      var nodes = [];
+      try {
+        nodes = document.querySelectorAll(selector);
+      } catch (e) {
+        console.warn(PREFIX, 'Selector failed:', selector, e);
+        continue;
+      }
+      var total = nodes.length;
+      var withText = countNodesWithText(nodes);
+      console.log(PREFIX, 'selector', selector, '— total nodes:', total, 'with readable text:', withText);
+      if (total > 0 && withText > 0) {
+        return { nodes: nodes, selector: selector };
+      }
+    }
     return { nodes: [], selector: 'none' };
   }
 
   function extractVisiblePostCandidates() {
-    const { nodes, selector } = getPostNodes();
+    const { nodes, selector } = findBestPostNodes();
     const nodeCount = nodes.length;
     const candidates = [];
     const seen = new Set(); // avoid duplicate text
 
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
-      const raw = node.innerText != null ? node.innerText : (node.textContent || '');
-      const cleaned = raw.trim().replace(/\s+/g, ' ');
+      const cleaned = getTextFromNode(node);
       const len = cleaned.length;
 
       console.log(PREFIX, 'article', i + 1, '— raw length:', len, 'cleaned preview:', (cleaned.slice(0, 80) || '(empty)') + (cleaned.length > 80 ? '…' : ''));
