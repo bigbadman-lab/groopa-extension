@@ -5,13 +5,10 @@ const headerSublineEl = document.getElementById('header-subline');
 const countKeywords = document.getElementById('count-keywords');
 const countGroups = document.getElementById('count-groups');
 const countDetections = document.getElementById('count-detections');
-const keywordsChips = document.getElementById('keywords-chips');
-const trackedGroupsEl = document.getElementById('tracked-groups');
 const recentDetectionsEl = document.getElementById('recent-detections');
 const facebookContextEl = document.getElementById('facebook-context');
 const visiblePostCandidatesEl = document.getElementById('visible-post-candidates');
 const openSettingsBtn = document.getElementById('open-settings');
-const keywordsAddBtn = document.getElementById('keywords-add-btn');
 const inboxListEl = document.getElementById('inbox-list');
 const leadDetailViewEl = document.getElementById('lead-detail-view');
 const detectionDetailBack = document.getElementById('lead-detail-back');
@@ -24,9 +21,12 @@ const leadDetailOpenFb = document.getElementById('lead-detail-open-fb');
 const toggleMoreBtn = document.getElementById('toggle-more');
 const collapsibleContent = document.getElementById('collapsible-content');
 const collapsibleSection = document.querySelector('.collapsible-section');
-const recentScansEl = document.getElementById('recent-scans');
-const recentScansSectionEl = document.getElementById('recent-scans-section');
 const inboxSectionEl = document.getElementById('inbox-section');
+const setupCardEl = document.getElementById('setup-card');
+const setupAddKeywordsBtn = document.getElementById('setup-add-keywords');
+const setupManageGroupsBtn = document.getElementById('setup-manage-groups');
+const setupOpenSettingsBtn = document.getElementById('setup-open-settings');
+const inboxOpenSettingsBtn = document.getElementById('inbox-open-settings');
 
 /** Last rendered detections list (used when opening a detection so we have the full object). */
 let lastDetectionsList = [];
@@ -105,15 +105,10 @@ async function loadAndRender() {
   const status = await getExtensionStatus();
   const settings = await getSettings();
 
-  const keywordList = settings.keywords;
-  const detectedGroupsList = settings.detectedGroups || [];
+  const keywordList = settings.keywords || [];
   const trackedGroupsList = settings.trackedGroups || [];
-  const detectionsList = settings.detections;
+  const detectionsList = settings.detections || [];
   const pagePostCandidatesList = settings.pagePostCandidates || [];
-
-  function isGroupTracked(group) {
-    return trackedGroupsList.some((t) => groupMatches(t, group));
-  }
 
   const isPaidUser = status && !status.error ? status.isPaidUser : settings.isPaidUser;
   const trackedCount = status && !status.error && status.selectedGroupCount != null
@@ -139,35 +134,10 @@ async function loadAndRender() {
     countDetections.textContent = detectionsList.length;
   }
 
-  // Latest group scans: detected groups sorted by lastSeenAt, top 5
-  const recentScansWithDate = (detectedGroupsList || [])
-    .filter((g) => g && (g.lastSeenAt || g.name))
-    .map((g) => ({ name: g.name || g.slug || 'Group', lastSeenAt: g.lastSeenAt || null }))
-    .sort((a, b) => {
-      if (!a.lastSeenAt) return 1;
-      if (!b.lastSeenAt) return -1;
-      return new Date(b.lastSeenAt) - new Date(a.lastSeenAt);
-    })
-    .slice(0, 5);
-
-  if (recentScansEl) {
-    if (recentScansWithDate.length === 0) {
-      recentScansEl.innerHTML = '<p class="placeholder-text">No recent scans yet.</p>';
-    } else {
-      recentScansEl.innerHTML = recentScansWithDate
-        .map(
-          (g) =>
-            `<div class="recent-scan-item">
-              <span class="recent-scan-name">${escapeHtml(g.name)}</span>
-              <span class="recent-scan-meta"><span class="recent-scan-label">Last scan</span> ${escapeHtml(formatRelativeTime(g.lastSeenAt))}</span>
-            </div>`
-        )
-        .join('');
-    }
-  }
-
-  if (recentScansSectionEl) {
-    recentScansSectionEl.hidden = !(trackedGroupsList.length > 0 || recentScansWithDate.length > 0);
+  // Setup card: show when user has not configured enough (no keywords or no tracked groups)
+  const needsSetup = keywordList.length === 0 || trackedGroupsList.length === 0;
+  if (setupCardEl) {
+    setupCardEl.hidden = !needsSetup;
   }
 
   // Facebook context panel (from status or from settings when background unavailable)
@@ -203,66 +173,17 @@ async function loadAndRender() {
       .join('');
   }
 
-  // Keyword chips
-  keywordsChips.innerHTML = '';
-  keywordList.forEach((keyword) => {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = keyword.trim() || '\u00A0';
-    keywordsChips.appendChild(chip);
-  });
-
-  // Tracked groups list: show detected groups with Track / Untrack buttons
-  if (detectedGroupsList.length === 0) {
-    trackedGroupsEl.className = 'placeholder-content';
-    trackedGroupsEl.innerHTML = '<p class="placeholder-title">No Facebook groups detected yet</p><p class="placeholder-text">Visit Facebook groups you are already a member of or join new ones. Groopa will automatically detect them. Once a group appears here, click Track to enable monitoring.</p>';
-  } else {
-    trackedGroupsEl.className = 'list-content';
-    trackedGroupsEl.innerHTML = detectedGroupsList
-      .map((g) => {
-        const lastSeen = g.lastSeenAt ? formatDate(g.lastSeenAt) : '—';
-        const tracked = isGroupTracked(g);
-        const id = escapeHtml((g.id != null ? g.id : '').toString());
-        const name = escapeHtml((g.name != null ? g.name : '').toString());
-        const url = escapeHtml((g.url != null ? g.url : '').toString());
-        const slug = escapeHtml((g.slug != null ? g.slug : '').toString());
-        const btn = tracked
-          ? `<button type="button" class="btn-untrack" data-group-id="${id}" data-group-name="${name}" data-group-url="${url}" data-group-slug="${slug}">Untrack</button>`
-          : `<button type="button" class="btn-track" data-group-id="${id}" data-group-name="${name}" data-group-url="${url}">Track</button>`;
-        return `<div class="list-item group-item">
-            <a class="group-name" href="${escapeHtml(g.url || '#')}" target="_blank" rel="noopener">${escapeHtml(g.name || '')}</a>
-            <span class="group-status">${tracked ? 'Tracking' : 'Not tracking'}</span>
-            <span class="group-last-seen">Last seen: ${escapeHtml(lastSeen)}</span>
-            ${btn}
-          </div>`;
-      })
-      .join('');
-
-    trackedGroupsEl.querySelectorAll('.btn-track').forEach((el) => {
-      el.addEventListener('click', async () => {
-        const group = { id: el.dataset.groupId, name: el.dataset.groupName, url: el.dataset.groupUrl };
-        const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'TRACK_GROUP', group }, r));
-        if (!chrome.runtime.lastError && !(res && res.error)) loadAndRender();
-      });
-    });
-    trackedGroupsEl.querySelectorAll('.btn-untrack').forEach((el) => {
-      el.addEventListener('click', async () => {
-        const group = { id: el.dataset.groupId, slug: el.dataset.groupSlug, url: el.dataset.groupUrl };
-        const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'UNTRACK_GROUP', group }, r));
-        if (!chrome.runtime.lastError && !(res && res.error)) loadAndRender();
-      });
-    });
-  }
-
-  // Inbox: full-width lead cards (single column)
+  // Recent leads (inbox preview): show up to 5, full list in detail when clicked
+  const RECENT_LEADS_PREVIEW_MAX = 5;
+  const previewList = detectionsList.slice(0, RECENT_LEADS_PREVIEW_MAX);
   lastDetectionsList = detectionsList;
   if (detectionsList.length === 0) {
     recentDetectionsEl.className = 'placeholder-content inbox-cards';
-    recentDetectionsEl.innerHTML = '<p class="placeholder-text">No detections yet.</p>';
+    recentDetectionsEl.innerHTML = '<p class="placeholder-text">No leads yet. Configure keywords and groups in Settings.</p>';
   } else {
     recentDetectionsEl.className = 'inbox-cards';
     const previewLen = 120;
-    recentDetectionsEl.innerHTML = detectionsList
+    recentDetectionsEl.innerHTML = previewList
       .map((d) => {
         const groupLabel = d.groupName || d.groupIdentifier || 'Group';
         const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
@@ -293,9 +214,6 @@ async function loadAndRender() {
         showLeadDetail(detection);
       });
     });
-  }
-  if (inboxSectionEl) {
-    inboxSectionEl.hidden = detectionsList.length === 0;
   }
   if (inboxListEl && leadDetailViewEl && !leadDetailViewEl.hidden) return;
   if (inboxListEl) inboxListEl.hidden = false;
@@ -351,12 +269,12 @@ if (toggleMoreBtn && collapsibleContent && collapsibleSection) {
   });
 }
 
-// Open options page (header settings + keywords Add button)
-openSettingsBtn.addEventListener('click', () => {
+function openOptionsPage() {
   chrome.runtime.openOptionsPage();
-});
-if (keywordsAddBtn) {
-  keywordsAddBtn.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
 }
+
+openSettingsBtn.addEventListener('click', openOptionsPage);
+if (setupAddKeywordsBtn) setupAddKeywordsBtn.addEventListener('click', openOptionsPage);
+if (setupManageGroupsBtn) setupManageGroupsBtn.addEventListener('click', openOptionsPage);
+if (setupOpenSettingsBtn) setupOpenSettingsBtn.addEventListener('click', openOptionsPage);
+if (inboxOpenSettingsBtn) inboxOpenSettingsBtn.addEventListener('click', openOptionsPage);

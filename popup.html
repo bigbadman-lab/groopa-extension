@@ -13,7 +13,7 @@
         <h1 class="title">Groopa</h1>
         <span id="header-status" class="header-status" aria-live="polite">Loading…</span>
       </div>
-      <button id="open-settings" class="btn-icon" title="Settings">&#9881;</button>
+      <button id="open-settings" class="btn-icon" title="Open Settings">&#9881;</button>
     </header>
     <p id="header-subline" class="header-subline" aria-live="polite"></p>
 
@@ -32,44 +32,36 @@
       </div>
     </div>
 
-    <section id="recent-scans-section" class="recent-scans-section">
-      <h2 class="recent-scans-title">Latest group scans</h2>
-      <div id="recent-scans" class="recent-scans-list">
-        <p class="placeholder-text">No recent scans yet.</p>
+    <div id="setup-card" class="setup-card" hidden>
+      <p class="setup-card-title">Get started</p>
+      <p class="setup-card-desc">Configure Groopa in Settings to start receiving leads.</p>
+      <ul class="setup-card-steps">
+        <li>Add keywords in Settings</li>
+        <li>Visit or join Facebook groups so Groopa can detect them</li>
+        <li>Track detected groups in Settings</li>
+      </ul>
+      <div class="setup-card-actions">
+        <button type="button" id="setup-add-keywords" class="btn btn-settings">Add keywords</button>
+        <button type="button" id="setup-manage-groups" class="btn btn-settings">Manage groups</button>
+        <button type="button" id="setup-open-settings" class="btn btn-settings-secondary">Open Settings</button>
       </div>
-    </section>
-
-    <section class="setup-section" aria-label="Get started">
-      <h2 class="setup-section-title">Get started</h2>
-      <div class="setup-block">
-        <div class="setup-block-header">
-          <h3 class="setup-block-title">Tracked keywords</h3>
-          <button type="button" id="keywords-add-btn" class="btn-track">Add</button>
-        </div>
-        <p class="setup-block-hint">Groopa will alert you when these appear in your tracked groups.</p>
-        <div id="keywords-chips" class="chips"></div>
-      </div>
-      <div class="setup-block">
-        <h3 class="setup-block-title">Tracked groups</h3>
-        <div id="tracked-groups" class="placeholder-content">
-          <p class="placeholder-title">No Facebook groups detected yet</p>
-          <p class="placeholder-text">Visit Facebook groups you are already a member of or join new ones. Groopa will automatically detect them. Once a group appears here, click Track to enable monitoring.</p>
-        </div>
-      </div>
-    </section>
+    </div>
 
     <section id="inbox-section" class="inbox-section">
-      <h2 class="inbox-heading">INBOX</h2>
-      <p class="inbox-subtitle">Manage your leads here</p>
+      <div class="inbox-header">
+        <h2 class="inbox-heading">Recent leads</h2>
+        <button type="button" id="inbox-open-settings" class="btn-link">Open Settings</button>
+      </div>
+      <p class="inbox-subtitle">Your latest alerts from tracked groups</p>
 
       <div id="inbox-list" class="inbox-list">
         <div id="recent-detections" class="inbox-cards">
-          <p class="placeholder-text">No detections yet.</p>
+          <p class="placeholder-text">No leads yet.</p>
         </div>
       </div>
 
       <div id="lead-detail-view" class="lead-detail-view" hidden>
-        <a href="#" id="lead-detail-back" class="lead-detail-back">&#8592; Back to Inbox</a>
+        <a href="#" id="lead-detail-back" class="lead-detail-back">&#8592; Back</a>
         <p class="lead-detail-group" id="lead-detail-group"></p>
         <p class="lead-detail-time" id="lead-detail-time"></p>
         <div class="lead-detail-post" id="lead-detail-text"></div>
