@@ -67,7 +67,8 @@
   const MAX_CANDIDATES = 10;
   const MIN_TEXT_LEN = 25; // filter out empty or very short text
   const MIN_UNIQUENESS = 0.4; // unique words / total words (filters "Facebook Facebook Facebook")
-  const RETRY_DELAYS_MS = [1500, 4000, 8000];
+  // Scheduled scans so we catch the feed after it renders (2s, 5s, 10s, 20s)
+  const RETRY_DELAYS_MS = [2000, 5000, 10000, 20000];
 
   // Phrases that indicate feed controls or UI chrome, not real post content
   const JUNK_PHRASES = [
@@ -202,10 +203,10 @@
     }
   }
 
-  // Run at 1.5s, 4s, and 8s so we catch content that loads after the first script run
+  // Run scheduled scans; each sends PAGE_POST_CANDIDATES_DETECTED (background dedupes detections)
   RETRY_DELAYS_MS.forEach(function (delayMs, index) {
     setTimeout(function () {
-      runPostCandidateScan('scan ' + (index + 1) + ' @ ' + delayMs + 'ms');
+      runPostCandidateScan('scheduled scan ' + (index + 1) + ' @ ' + delayMs + 'ms');
     }, delayMs);
   });
 })();
