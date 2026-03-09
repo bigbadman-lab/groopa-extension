@@ -437,12 +437,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await updateUnreadBadge();
           if (settings.soundEnabled !== false) {
             const d = added[0];
-            const title = 'New Groopa lead detected';
             const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
             const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
+            const title = added.length > 1 ? added.length + ' new Groopa leads detected' : 'New Groopa lead detected';
             const message =
               added.length > 1
-                ? added.length + ' new leads. Latest: ' + groupLabel + (preview ? ': ' + preview + (preview.length >= 60 ? '…' : '') : '')
+                ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
                 : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
             const notificationId = 'groopa-scan-' + Date.now();
             await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
