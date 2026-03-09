@@ -224,6 +224,22 @@ async function updateDetectionStatus(fingerprint, status) {
 }
 
 /**
+ * Mark all detections with status "new" as "opened". Used when the user opens the inbox (popup or settings).
+ * Detections stay in the inbox; only their status changes so the badge count drops to zero.
+ */
+async function markAllNewDetectionsAsOpened() {
+  const list = await getDetections();
+  let changed = false;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] && list[i].status === 'new') {
+      list[i] = { ...list[i], status: 'opened' };
+      changed = true;
+    }
+  }
+  if (changed) await saveDetections(list);
+}
+
+/**
  * @returns {Promise<object[]>}
  */
 async function getDetectedGroups() {

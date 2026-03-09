@@ -560,7 +560,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'INBOX_OPENED') {
     (async () => {
       try {
-        await chrome.action.setBadgeText({ text: '' });
+        await markAllNewDetectionsAsOpened();
+        await updateUnreadBadge();
         sendResponse({ ok: true });
       } catch (err) {
         sendResponse({ ok: false });

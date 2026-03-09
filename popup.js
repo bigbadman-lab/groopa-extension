@@ -278,3 +278,8 @@ if (setupAddKeywordsBtn) setupAddKeywordsBtn.addEventListener('click', openOptio
 if (setupManageGroupsBtn) setupManageGroupsBtn.addEventListener('click', openOptionsPage);
 if (setupOpenSettingsBtn) setupOpenSettingsBtn.addEventListener('click', openOptionsPage);
 if (inboxOpenSettingsBtn) inboxOpenSettingsBtn.addEventListener('click', openOptionsPage);
+
+// When the user opens the popup (inbox), mark all current "new" leads as "opened" so the badge reflects unseen only
+try {
+  chrome.runtime.sendMessage({ type: 'INBOX_OPENED' });
+} catch (_) {}
