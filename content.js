@@ -188,8 +188,8 @@
         console.log(PREFIX, 'article', i + 1, '— skipped (short, UI chrome, or repetitive junk)');
         continue;
       }
-      const key = cleaned.slice(0, 200).toLowerCase();
-      if (seen.has(key)) continue;
+      const key = typeof cleaned === 'string' ? cleaned.slice(0, 200).toLowerCase() : '';
+      if (!key || seen.has(key)) continue;
       seen.add(key);
 
       candidates.push({

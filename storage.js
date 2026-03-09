@@ -188,12 +188,18 @@ const MAX_DETECTIONS_STORED = 100;
 async function appendDetectionsIfNew(newDetections) {
   if (!Array.isArray(newDetections) || newDetections.length === 0) return [];
   const existing = await getDetections();
-  const seen = new Set(existing.map((d) => d.fingerprint).filter(Boolean));
+  const seen = new Set(
+    existing.map(function (d) {
+      return d && d.fingerprint ? String(d.fingerprint) : null;
+    }).filter(Boolean)
+  );
   const toAdd = [];
   for (let i = 0; i < newDetections.length; i++) {
     const d = newDetections[i];
-    if (!d.fingerprint || seen.has(d.fingerprint)) continue;
-    seen.add(d.fingerprint);
+    if (!d || typeof d !== 'object') continue;
+    const key = d.fingerprint != null ? String(d.fingerprint) : '';
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     toAdd.push(d);
   }
   if (toAdd.length === 0) return [];
