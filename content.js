@@ -63,6 +63,19 @@
   // ----- Visible post candidate detection (group pages only, with retries) -----
   if (!context.isGroupPage) return;
 
+  /**
+   * Safely check whether the extension context is still valid.
+   * Content scripts can become stale after extension reload/update; delayed callbacks
+   * may then run when chrome.runtime is invalidated and throw if we don't check.
+   */
+  function isExtensionContextValid() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
   const MAX_PREVIEW_LEN = 150;
   const MAX_CANDIDATES = 10;
   const MIN_TEXT_LEN = 25; // filter out empty or very short text
@@ -187,6 +200,7 @@
   }
 
   function runPostCandidateScan(attemptLabel) {
+    if (!isExtensionContextValid()) return;
     const { candidates, nodeCount, selector } = extractVisiblePostCandidates();
     console.log(PREFIX, attemptLabel, '— nodes found:', nodeCount, 'selector:', selector, 'candidates extracted:', candidates.length);
     if (candidates.length === 0) return;
@@ -209,6 +223,7 @@
   }
 
   chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+    if (!isExtensionContextValid()) return false;
     if (message && message.type === 'RUN_GROUP_SCAN') {
       runPostCandidateScan('heartbeat');
       sendResponse({ ok: true });
@@ -229,17 +244,21 @@
   let feedObserver = null;
 
   function scheduleDebouncedMutationScan() {
+    if (!isExtensionContextValid()) return;
     if (mutationScanTimer) clearTimeout(mutationScanTimer);
     mutationScanTimer = setTimeout(function () {
       mutationScanTimer = null;
+      if (!isExtensionContextValid()) return;
       runPostCandidateScan('mutation');
     }, MUTATION_DEBOUNCE_MS);
   }
 
   function scheduleVisibilityRescan() {
+    if (!isExtensionContextValid()) return;
     if (visibilityScanTimer) clearTimeout(visibilityScanTimer);
     visibilityScanTimer = setTimeout(function () {
       visibilityScanTimer = null;
+      if (!isExtensionContextValid()) return;
       var now = Date.now();
       if (now - lastVisibilityScanAt >= VISIBILITY_DEBOUNCE_MS) {
         lastVisibilityScanAt = now;
@@ -249,9 +268,11 @@
   }
 
   function scheduleDebouncedScrollScan() {
+    if (!isExtensionContextValid()) return;
     if (scrollScanTimer) clearTimeout(scrollScanTimer);
     scrollScanTimer = setTimeout(function () {
       scrollScanTimer = null;
+      if (!isExtensionContextValid()) return;
       runPostCandidateScan('scroll');
     }, SCROLL_DEBOUNCE_MS);
   }
@@ -261,6 +282,7 @@
     var root = document.body;
     if (!root) return;
     feedObserver = new MutationObserver(function (_mutations) {
+      if (!isExtensionContextValid()) return;
       scheduleDebouncedMutationScan();
     });
     feedObserver.observe(root, { childList: true, subtree: true });
@@ -292,9 +314,32 @@
   }, { passive: true });
 
   // Run scheduled scans; each sends PAGE_POST_CANDIDATES_DETECTED (background dedupes detections)
+  const retryTimerIds = [];
   RETRY_DELAYS_MS.forEach(function (delayMs, index) {
-    setTimeout(function () {
+    const id = setTimeout(function () {
+      if (!isExtensionContextValid()) return;
       runPostCandidateScan('scheduled scan ' + (index + 1) + ' @ ' + delayMs + 'ms');
     }, delayMs);
+    retryTimerIds.push(id);
   });
+
+  function clearAllScanTimers() {
+    if (mutationScanTimer) {
+      clearTimeout(mutationScanTimer);
+      mutationScanTimer = null;
+    }
+    if (visibilityScanTimer) {
+      clearTimeout(visibilityScanTimer);
+      visibilityScanTimer = null;
+    }
+    if (scrollScanTimer) {
+      clearTimeout(scrollScanTimer);
+      scrollScanTimer = null;
+    }
+    retryTimerIds.forEach(clearTimeout);
+    retryTimerIds.length = 0;
+  }
+
+  window.addEventListener('pagehide', clearAllScanTimers);
+  window.addEventListener('beforeunload', clearAllScanTimers);
 })();
