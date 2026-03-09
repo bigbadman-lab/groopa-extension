@@ -144,6 +144,29 @@ body {
   line-height: 1.45;
 }
 
+/* Pinned Inbox card — primary working area */
+.card-pinned {
+  border-left: 4px solid #1877f2;
+  background: linear-gradient(to right, rgba(24, 119, 242, 0.04), transparent 12px);
+}
+
+.card-title-pinned {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1877f2;
+}
+
+.card-title-icon svg {
+  display: block;
+}
+
 /* Keywords */
 .keywords-add-row {
   display: flex;
