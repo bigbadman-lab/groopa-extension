@@ -81,7 +81,14 @@
         </div>
 
         <div class="card">
-          <h3 class="card-title">Add Facebook Group</h3>
+          <h3 class="card-title">Detected Facebook Groups</h3>
+          <p class="card-hint">Groopa automatically detects groups as you browse Facebook. Visit group pages and they’ll appear here—then click Track to monitor them.</p>
+          <div class="groups-list-scroll">
+            <div id="detected-groups" class="groups-list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Can’t find your group?</h3>
           <p class="card-hint">Add a group by URL if you already have the link.</p>
           <button type="button" id="add-manually-btn" class="btn btn-secondary btn-sm">Add manually</button>
           <div id="add-group-form" class="add-group-form" hidden>
@@ -93,13 +100,6 @@
               <button type="button" id="add-group-cancel" class="btn btn-secondary">Cancel</button>
             </div>
             <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
-          </div>
-        </div>
-        <div class="card">
-          <h3 class="card-title">Tracked groups</h3>
-          <p class="card-hint">Visit Facebook group pages to detect them, or add a URL above. Toggle Track to start or stop monitoring.</p>
-          <div class="groups-list-scroll">
-            <div id="detected-groups" class="groups-list"></div>
           </div>
         </div>
       </section>

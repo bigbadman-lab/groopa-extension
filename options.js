@@ -259,7 +259,11 @@ function isTracked(groupId) {
 
 function renderDetectedGroups() {
   if (detectedGroupsList.length === 0) {
-    detectedGroupsEl.innerHTML = '<p class="groups-empty">No detected groups yet. Visit Facebook group pages or load demo data.</p>';
+    detectedGroupsEl.innerHTML =
+      '<div class="groups-empty-wrap">' +
+      '<p class="groups-empty-title">No groups detected yet.</p>' +
+      '<p class="groups-empty-hint">Visit Facebook groups you are already a member of, or join new ones, and Groopa will detect them here.</p>' +
+      '</div>';
     return;
   }
   function formatOptDate(iso) {

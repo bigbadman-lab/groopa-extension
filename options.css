@@ -443,6 +443,28 @@ body {
   margin: 0;
 }
 
+.groups-empty-wrap {
+  padding: 16px;
+  background: #f8f8f8;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  margin: 0;
+}
+
+.groups-empty-wrap .groups-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin: 0 0 6px 0;
+}
+
+.groups-empty-wrap .groups-empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #888;
+  line-height: 1.45;
+}
+
 /* Inbox (compact list in Monitoring) */
 .inbox-list {
   margin: 0;
