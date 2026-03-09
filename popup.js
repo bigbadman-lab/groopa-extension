@@ -1,24 +1,53 @@
-// Groopa popup script — read settings and show status
+// Groopa popup — dashboard: load settings and render
 
-const statusEl = document.getElementById('status-text');
+const heroStatus = document.getElementById('hero-status');
+const heroDetail = document.getElementById('hero-detail');
+const countKeywords = document.getElementById('count-keywords');
+const countGroups = document.getElementById('count-groups');
+const countDetections = document.getElementById('count-detections');
+const keywordsChips = document.getElementById('keywords-chips');
 const openSettingsBtn = document.getElementById('open-settings');
 
-// Load saved values and update status
-chrome.storage.sync.get(['isPaidUser', 'keywords', 'soundEnabled'], (result) => {
-  const isPaidUser = result.isPaidUser === true;
-  const keywords = result.keywords || [];
-  const soundEnabled = result.soundEnabled !== false;
-  const keywordCount = Array.isArray(keywords) ? keywords.length : 0;
+// Load from chrome.storage.sync and render dashboard
+chrome.storage.sync.get(
+  ['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups', 'detections'],
+  (result) => {
+    const isPaidUser = result.isPaidUser === true;
+    const keywords = result.keywords || [];
+    const soundEnabled = result.soundEnabled !== false;
+    const trackedGroups = result.trackedGroups || [];
+    const detections = result.detections || [];
 
-  if (!isPaidUser) {
-    statusEl.textContent = 'No paid access enabled';
-  } else {
-    const soundText = soundEnabled ? 'Sound on' : 'Sound off';
-    statusEl.textContent = `Paid active • ${keywordCount} keyword${keywordCount === 1 ? '' : 's'} • ${soundText}`;
+    const keywordList = Array.isArray(keywords) ? keywords : [];
+    const groupsList = Array.isArray(trackedGroups) ? trackedGroups : [];
+    const detectionsList = Array.isArray(detections) ? detections : [];
+
+    // Hero status
+    if (!isPaidUser) {
+      heroStatus.textContent = 'Paid access required';
+      heroDetail.textContent = 'Enable paid user access in Settings to use Groopa.';
+    } else {
+      heroStatus.textContent = 'Groopa is ready';
+      heroDetail.textContent = soundEnabled ? 'Sound notifications on' : 'Sound notifications off';
+    }
+
+    // Summary counts
+    countKeywords.textContent = keywordList.length;
+    countGroups.textContent = groupsList.length;
+    countDetections.textContent = detectionsList.length;
+
+    // Keyword chips
+    keywordsChips.innerHTML = '';
+    keywordList.forEach((keyword) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = keyword.trim() || '\u00A0';
+      keywordsChips.appendChild(chip);
+    });
   }
-});
+);
 
-// Open options page when button is clicked
+// Open options page
 openSettingsBtn.addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });

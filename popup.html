@@ -8,19 +8,49 @@
 </head>
 <body>
   <div class="popup">
-    <h1 class="title">Groopa</h1>
+    <header class="header">
+      <h1 class="title">Groopa</h1>
+      <button id="open-settings" class="btn-icon" title="Settings">⚙</button>
+    </header>
 
-    <div class="card status-card">
-      <h2 class="card-title">Status</h2>
-      <p id="status-text" class="card-content">Loading…</p>
+    <div class="card hero-card">
+      <p id="hero-status" class="hero-status">Loading…</p>
+      <p id="hero-detail" class="hero-detail"></p>
     </div>
 
-    <div class="card next-steps-card">
-      <h2 class="card-title">Next steps</h2>
-      <p class="card-content">Configure your settings and visit a Facebook group to start monitoring.</p>
+    <div class="summary-row">
+      <div class="mini-card">
+        <span id="count-keywords" class="mini-count">0</span>
+        <span class="mini-label">Keywords</span>
+      </div>
+      <div class="mini-card">
+        <span id="count-groups" class="mini-count">0</span>
+        <span class="mini-label">Tracked Groups</span>
+      </div>
+      <div class="mini-card">
+        <span id="count-detections" class="mini-count">0</span>
+        <span class="mini-label">Detections</span>
+      </div>
     </div>
 
-    <button id="open-settings" class="btn">Open Settings</button>
+    <section class="section">
+      <h2 class="section-title">Tracked keywords</h2>
+      <div id="keywords-chips" class="chips"></div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Tracked groups</h2>
+      <div id="tracked-groups" class="placeholder-content">
+        <p class="placeholder-text">No groups added yet. Add groups in Settings.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Recent detections</h2>
+      <div id="recent-detections" class="placeholder-content">
+        <p class="placeholder-text">No detections yet.</p>
+      </div>
+    </section>
   </div>
   <script src="popup.js"></script>
 </body>
