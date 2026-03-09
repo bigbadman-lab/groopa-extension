@@ -2,52 +2,17 @@
 importScripts('storage.js');
 
 /**
- * Strong normalization for fingerprint/dedupe: lowercase, trim, collapse whitespace,
- * remove zero-width/invisible characters so small formatting differences don't create duplicate fingerprints.
+ * Returns which keywords appear in the normalized text. Uses same normalizer as fingerprint for consistency.
  */
-function normalizeText(text) {
-  if (text == null || typeof text !== 'string') return '';
-  return String(text)
-    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
-}
-
 function getMatchingKeywords(normalizedText, keywords) {
   if (!normalizedText || !Array.isArray(keywords)) return [];
   const matched = [];
   for (let i = 0; i < keywords.length; i++) {
     const kw = (keywords[i] != null && typeof keywords[i] === 'string') ? keywords[i].trim() : '';
     if (kw.length === 0) continue;
-    if (normalizedText.indexOf(normalizeText(kw)) !== -1) matched.push(kw);
+    if (normalizedText.indexOf(normalizeTextForFingerprint(kw)) !== -1) matched.push(kw);
   }
   return matched;
-}
-
-/**
- * Single stable fingerprint for dedupe. Uses only:
- * - stable group identity: groupId/slug (preferred) else normalized group URL
- * - strongly normalized text preview (first 200 chars)
- * - matched keywords normalized and sorted into stable order
- * Does NOT use: createdAt, source, timestamps, array index, or attempt label.
- */
-function makeDetectionFingerprint(groupIdentifier, pageUrl, normalizedPreview, matchedKeywords) {
-  const groupKey =
-    groupIdentifier != null && String(groupIdentifier).trim()
-      ? String(groupIdentifier).trim().toLowerCase()
-      : (normalizeFacebookGroupUrl(pageUrl || '') || '').toLowerCase();
-  const preview = (normalizedPreview || '').slice(0, 200);
-  const kws = Array.isArray(matchedKeywords)
-    ? matchedKeywords
-        .map(function (k) {
-          return (k != null && String(k).trim()) ? normalizeText(String(k).trim()) : '';
-        })
-        .filter(Boolean)
-        .sort()
-        .join(',')
-    : '';
-  return groupKey + '|' + preview + '|' + kws;
 }
 
 /**
@@ -422,12 +387,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
-          const normalized = normalizeText(textPreview);
+          const normalized = normalizeTextForFingerprint(textPreview);
           const matchedKeywords = getMatchingKeywords(normalized, keywords);
           if (matchedKeywords.length === 0) continue;
 
-          const stableGroupKey = groupSlugFromUrl || groupIdentifier;
-          const fingerprint = makeDetectionFingerprint(stableGroupKey, pageUrl, normalized, matchedKeywords);
+          const fingerprint = buildDetectionFingerprint({
+            groupId: groupIdentifier,
+            groupSlug: groupSlugFromUrl,
+            pageUrl: pageUrl,
+            textPreview: textPreview,
+            matchedKeywords: matchedKeywords,
+          });
           newDetections.push({
             matchedKeywords,
             textPreview,

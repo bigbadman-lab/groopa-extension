@@ -180,10 +180,10 @@ const MAX_DETECTIONS_STORED = 100;
 
 /**
  * Append new detections, dedupe by fingerprint, keep list under MAX_DETECTIONS_STORED.
- * Dedupes against existing storage and within the incoming batch (same fingerprint
- * in multiple candidates only added once).
- * @param {object[]} newDetections - each must have .fingerprint
- * @returns {Promise<object[]>} the detections that were actually added (new)
+ * Dedupes against: (1) already stored detections, (2) duplicates within the same incoming batch.
+ * Only detections with a non-empty fingerprint are considered; duplicates are not saved, rendered, or counted.
+ * @param {object[]} newDetections - each must have .fingerprint (from buildDetectionFingerprint)
+ * @returns {Promise<object[]>} the detections that were actually added (use this for badge + notifications)
  */
 async function appendDetectionsIfNew(newDetections) {
   if (!Array.isArray(newDetections) || newDetections.length === 0) return [];
@@ -197,7 +197,7 @@ async function appendDetectionsIfNew(newDetections) {
   for (let i = 0; i < newDetections.length; i++) {
     const d = newDetections[i];
     if (!d || typeof d !== 'object') continue;
-    const key = d.fingerprint != null ? String(d.fingerprint) : '';
+    const key = d.fingerprint != null ? String(d.fingerprint).trim() : '';
     if (!key || seen.has(key)) continue;
     seen.add(key);
     toAdd.push(d);
@@ -274,6 +274,64 @@ function getSlugFromGroupUrl(url) {
   } catch (_) {
     return '';
   }
+}
+
+/**
+ * Strong normalization for fingerprint/dedupe only: lowercase, trim, collapse whitespace,
+ * remove zero-width/invisible chars, strip trailing ellipsis so same post always has same fingerprint.
+ * Used by buildDetectionFingerprint and for consistent keyword normalization.
+ */
+function normalizeTextForFingerprint(text) {
+  if (text == null || typeof text !== 'string') return '';
+  return String(text)
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\u2026$|\.\.\.$/g, '')
+    .toLowerCase();
+}
+
+const FINGERPRINT_PREVIEW_LEN = 200;
+
+/**
+ * One deterministic fingerprint per lead. Used for all detections so duplicates are never stored.
+ * Uses only stable fields: group identity, normalized post text (first 200 chars), normalized+sorted keywords.
+ * Does NOT use: createdAt, source, timestamps, attempt labels, array index.
+ * @param {object} opts
+ * @param {string} [opts.groupId] - stable group id if known
+ * @param {string} [opts.groupSlug] - slug from URL (e.g. getSlugFromGroupUrl(pageUrl))
+ * @param {string} [opts.pageUrl] - fallback to derive group from URL
+ * @param {string} opts.textPreview - raw post text (will be normalized inside)
+ * @param {string[]} opts.matchedKeywords - matched keywords (will be normalized and sorted)
+ * @returns {string}
+ */
+function buildDetectionFingerprint(opts) {
+  if (!opts || typeof opts !== 'object') return '';
+  const groupId = opts.groupId != null ? String(opts.groupId).trim() : '';
+  const groupSlug = opts.groupSlug != null ? String(opts.groupSlug).trim() : '';
+  const pageUrl = opts.pageUrl != null ? opts.pageUrl : '';
+  const textPreview = opts.textPreview != null ? String(opts.textPreview) : '';
+  const matchedKeywords = Array.isArray(opts.matchedKeywords) ? opts.matchedKeywords : [];
+
+  let groupKey = '';
+  if (groupId) groupKey = groupId.toLowerCase();
+  else if (groupSlug) groupKey = groupSlug.toLowerCase();
+  else {
+    const slug = getSlugFromGroupUrl(pageUrl);
+    if (slug) groupKey = slug.toLowerCase();
+    else groupKey = (normalizeFacebookGroupUrl(pageUrl) || '').toLowerCase();
+  }
+
+  const preview = normalizeTextForFingerprint(textPreview).slice(0, FINGERPRINT_PREVIEW_LEN);
+  const kws = matchedKeywords
+    .map(function (k) {
+      return (k != null && String(k).trim()) ? normalizeTextForFingerprint(String(k).trim()) : '';
+    })
+    .filter(Boolean)
+    .sort()
+    .join(',');
+
+  return groupKey + '|' + preview + '|' + kws;
 }
 
 /**
