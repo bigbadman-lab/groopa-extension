@@ -185,6 +185,12 @@ body {
   color: #666;
 }
 
+.monitor-window-hint {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #666;
+}
+
 /* Keywords */
 .keywords-add-row {
   display: flex;

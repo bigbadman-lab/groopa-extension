@@ -205,11 +205,13 @@ chrome.runtime.onInstalled.addListener(() => {
     console.log('[Groopa] Migration: operational data now in local storage');
   });
   scheduleScanHeartbeat();
+  updateUnreadBadge();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[Groopa] Extension started');
   scheduleScanHeartbeat();
+  updateUnreadBadge();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -218,8 +220,57 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+const NOTIFICATION_CONTEXT_KEY = 'groopaNotificationContext';
+
+function getNotificationContext() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(NOTIFICATION_CONTEXT_KEY, (raw) => {
+      const v = raw[NOTIFICATION_CONTEXT_KEY];
+      resolve(v && typeof v === 'object' ? v : null);
+    });
+  });
+}
+
+function setNotificationContext(data) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [NOTIFICATION_CONTEXT_KEY]: data }, resolve);
+  });
+}
+
+function clearNotificationContext() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove(NOTIFICATION_CONTEXT_KEY, resolve);
+  });
+}
+
+async function updateUnreadBadge() {
+  try {
+    const list = await getDetections();
+    const count = list.filter((d) => d.status === 'new').length;
+    await chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#1877f2' });
+  } catch (e) {
+    console.warn('[Groopa] updateUnreadBadge failed', e);
+  }
+}
+
 chrome.notifications.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
+});
+
+chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+  if (buttonIndex === 0) {
+    chrome.runtime.openOptionsPage();
+    return;
+  }
+  if (buttonIndex === 1) {
+    getNotificationContext().then((ctx) => {
+      if (ctx && ctx.pageUrl) {
+        chrome.tabs.create({ url: ctx.pageUrl });
+      }
+      clearNotificationContext();
+    });
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -374,18 +425,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
-        if (added.length > 0 && settings.soundEnabled !== false) {
-          for (let a = 0; a < added.length; a++) {
-            const d = added[a];
+        if (added.length > 0) {
+          await updateUnreadBadge();
+          if (settings.soundEnabled !== false) {
+            const d = added[0];
             const title = 'New Groopa lead detected';
             const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
             const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
-            const message = preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
+            const message =
+              added.length > 1
+                ? added.length + ' new leads. Latest: ' + groupLabel + (preview ? ': ' + preview + (preview.length >= 60 ? '…' : '') : '')
+                : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
+            const notificationId = 'groopa-scan-' + Date.now();
+            await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
             try {
-              chrome.notifications.create('groopa-lead-' + (d.fingerprint || a) + '-' + Date.now(), {
+              chrome.notifications.create(notificationId, {
                 type: 'basic',
                 title,
                 message,
+                buttons: [{ title: 'Open Lead' }, { title: 'Open Facebook Post' }],
               });
             } catch (notifErr) {
               console.warn('[Groopa] Notification create failed', notifErr);
@@ -493,6 +551,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } catch (err) {
         console.error('[Groopa] OPEN_MONITOR_WINDOW error', err);
         sendResponse({ ok: false, error: err && err.message ? err.message : 'Failed to open window' });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'INBOX_OPENED') {
+    (async () => {
+      try {
+        await chrome.action.setBadgeText({ text: '' });
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false });
       }
     })();
     return true;

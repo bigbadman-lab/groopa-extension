@@ -36,6 +36,7 @@ const monitorMeta = document.getElementById('monitor-meta');
 const monitorStartBtn = document.getElementById('monitor-start-btn');
 const monitorStopBtn = document.getElementById('monitor-stop-btn');
 const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
+const monitorWindowHint = document.getElementById('monitor-window-hint');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -106,6 +107,10 @@ async function loadPage() {
     if (accountVersionEl) accountVersionEl.textContent = '0.1.0';
     if (sidebarVersionEl) sidebarVersionEl.textContent = 'v0.1.0';
   }
+
+  try {
+    chrome.runtime.sendMessage({ type: 'INBOX_OPENED' });
+  } catch (_) {}
 }
 
 function updateAccountPanel(isPaidUser) {
@@ -152,6 +157,12 @@ function renderMonitorStatus(settings) {
   }
   if (monitorStopBtn) {
     monitorStopBtn.disabled = !enabled;
+  }
+  if (monitorOpenWindowBtn) {
+    monitorOpenWindowBtn.hidden = !enabled;
+  }
+  if (monitorWindowHint) {
+    monitorWindowHint.hidden = enabled;
   }
 }
 
