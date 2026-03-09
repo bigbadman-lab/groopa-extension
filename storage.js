@@ -4,7 +4,7 @@
 const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled'];
 
 // Local: larger operational data (no strict quota per item)
-const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt'];
+const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'monitoringState'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -17,6 +17,13 @@ const DEFAULTS = {
   lastFacebookContext: null,
   pagePostCandidates: [],
   groupLastScannedAt: {},
+  monitoringState: {
+    monitoringEnabled: false,
+    monitorWindowId: null,
+    monitorTabId: null,
+    nextTrackedGroupIndex: 0,
+    monitorLastRunAt: null,
+  },
 };
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
@@ -79,6 +86,7 @@ async function getSettings() {
     lastFacebookContext: rawLocal.lastFacebookContext != null ? rawLocal.lastFacebookContext : DEFAULTS.lastFacebookContext,
     pagePostCandidates: Array.isArray(rawLocal.pagePostCandidates) ? rawLocal.pagePostCandidates : DEFAULTS.pagePostCandidates,
     groupLastScannedAt: rawLocal.groupLastScannedAt != null && typeof rawLocal.groupLastScannedAt === 'object' ? rawLocal.groupLastScannedAt : DEFAULTS.groupLastScannedAt,
+    monitoringState: rawLocal.monitoringState != null && typeof rawLocal.monitoringState === 'object' ? { ...DEFAULTS.monitoringState, ...rawLocal.monitoringState } : DEFAULTS.monitoringState,
   };
 }
 
@@ -424,4 +432,30 @@ async function setGroupLastScannedAt(groupKey, isoDateString) {
   const current = await getGroupLastScannedAt();
   const next = { ...current, [String(groupKey).toLowerCase()]: isoDateString };
   await setInStorageLocal({ groupLastScannedAt: next });
+}
+
+/**
+ * Get Groopa monitor window/tab state (operational, local storage).
+ * @returns {Promise<{monitoringEnabled: boolean, monitorWindowId: number|null, monitorTabId: number|null, nextTrackedGroupIndex: number, monitorLastRunAt: string|null}>}
+ */
+async function getMonitoringState() {
+  const raw = await getFromStorageLocal(['monitoringState']);
+  const s = raw.monitoringState != null && typeof raw.monitoringState === 'object' ? raw.monitoringState : {};
+  return {
+    monitoringEnabled: s.monitoringEnabled === true,
+    monitorWindowId: s.monitorWindowId != null ? Number(s.monitorWindowId) : null,
+    monitorTabId: s.monitorTabId != null ? Number(s.monitorTabId) : null,
+    nextTrackedGroupIndex: Math.max(0, parseInt(s.nextTrackedGroupIndex, 10) || 0),
+    monitorLastRunAt: s.monitorLastRunAt != null && typeof s.monitorLastRunAt === 'string' ? s.monitorLastRunAt : null,
+  };
+}
+
+/**
+ * Update monitoring state (merge partial into current).
+ * @param {Partial<{monitoringEnabled: boolean, monitorWindowId: number|null, monitorTabId: number|null, nextTrackedGroupIndex: number, monitorLastRunAt: string|null}>} partial
+ */
+async function updateMonitoringState(partial) {
+  const current = await getMonitoringState();
+  const next = { ...current, ...partial };
+  await setInStorageLocal({ monitoringState: next });
 }

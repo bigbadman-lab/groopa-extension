@@ -3,7 +3,7 @@
   "name": "Groopa",
   "version": "0.1.0",
   "description": "Monitor your paid Facebook groups. Get notified and stay on top of new posts and activity.",
-  "permissions": ["storage", "alarms", "notifications"],
+  "permissions": ["storage", "alarms", "notifications", "tabs", "windows"],
   "host_permissions": ["https://*.facebook.com/*"],
   "background": {
     "service_worker": "background.js"

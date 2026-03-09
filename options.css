@@ -167,6 +167,24 @@ body {
   display: block;
 }
 
+/* Groopa Monitor card */
+.monitor-status-wrap {
+  margin: 0 0 16px 0;
+}
+
+.monitor-status {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.monitor-meta {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+}
+
 /* Keywords */
 .keywords-add-row {
   display: flex;

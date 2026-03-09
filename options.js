@@ -31,6 +31,11 @@ const addGroupCancelBtn = document.getElementById('add-group-cancel');
 const accountPlanEl = document.getElementById('account-plan');
 const accountVersionEl = document.getElementById('account-version');
 const sidebarVersionEl = document.getElementById('sidebar-version');
+const monitorStatusText = document.getElementById('monitor-status-text');
+const monitorMeta = document.getElementById('monitor-meta');
+const monitorStartBtn = document.getElementById('monitor-start-btn');
+const monitorStopBtn = document.getElementById('monitor-stop-btn');
+const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -89,6 +94,7 @@ async function loadPage() {
   renderKeywords();
   renderDetectedGroups();
   renderInbox();
+  renderMonitorStatus(settings);
   updateAccountPanel(settings.isPaidUser);
 
   try {
@@ -106,6 +112,52 @@ function updateAccountPanel(isPaidUser) {
   if (accountPlanEl) {
     accountPlanEl.textContent = isPaidUser ? 'Paid' : 'Free';
   }
+}
+
+function renderMonitorStatus(settings) {
+  const count = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.length : 0;
+  const mon = settings.monitoringState != null ? settings.monitoringState : {};
+  const enabled = mon.monitoringEnabled === true;
+
+  if (monitorStatusText) {
+    if (count === 0) {
+      monitorStatusText.textContent = 'No tracked groups';
+    } else if (enabled) {
+      monitorStatusText.textContent = 'Active';
+    } else {
+      monitorStatusText.textContent = 'Paused';
+    }
+  }
+
+  const metaParts = [];
+  metaParts.push(count + ' tracked group' + (count !== 1 ? 's' : ''));
+  if (count > 0) {
+    const cycleSec = count * 30;
+    metaParts.push('Full cycle: ~' + (cycleSec < 60 ? cycleSec + 's' : Math.round(cycleSec / 60) + ' min'));
+  }
+  if (mon.monitorLastRunAt) {
+    try {
+      const d = new Date(mon.monitorLastRunAt);
+      if (!isNaN(d.getTime())) {
+        metaParts.push('Last run: ' + d.toLocaleTimeString());
+      }
+    } catch (_) {}
+  }
+  if (monitorMeta) {
+    monitorMeta.textContent = metaParts.join(' · ');
+  }
+
+  if (monitorStartBtn) {
+    monitorStartBtn.disabled = count === 0 || enabled;
+  }
+  if (monitorStopBtn) {
+    monitorStopBtn.disabled = !enabled;
+  }
+}
+
+async function refreshMonitorStatus() {
+  const settings = await getSettings();
+  renderMonitorStatus(settings);
 }
 
 function renderKeywords() {
@@ -384,6 +436,36 @@ clearDemoBtn.addEventListener('click', async () => {
   renderInbox();
   showDemoMessage('Demo data cleared.');
 });
+
+if (monitorStartBtn) {
+  monitorStartBtn.addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'START_MONITORING' });
+      await refreshMonitorStatus();
+    } catch (e) {
+      console.error('Start monitoring failed', e);
+    }
+  });
+}
+if (monitorStopBtn) {
+  monitorStopBtn.addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'STOP_MONITORING' });
+      await refreshMonitorStatus();
+    } catch (e) {
+      console.error('Stop monitoring failed', e);
+    }
+  });
+}
+if (monitorOpenWindowBtn) {
+  monitorOpenWindowBtn.addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'OPEN_MONITOR_WINDOW' });
+    } catch (e) {
+      console.error('Open monitor window failed', e);
+    }
+  });
+}
 
 // Sidebar navigation
 document.querySelectorAll('.nav-item').forEach((btn) => {

@@ -82,26 +82,113 @@ function scheduleScanHeartbeat() {
   chrome.alarms.create(SCAN_HEARTBEAT_ALARM_NAME, { delayInMinutes: SCAN_HEARTBEAT_INTERVAL_MINUTES });
 }
 
+/**
+ * Ensure the Groopa monitor window exists; create if missing. Clears stale IDs.
+ */
+async function ensureMonitorWindow() {
+  const state = await getMonitoringState();
+  if (state.monitorWindowId != null) {
+    try {
+      await chrome.windows.get(state.monitorWindowId);
+      return { windowId: state.monitorWindowId };
+    } catch (_) {
+      await updateMonitoringState({ monitorWindowId: null, monitorTabId: null });
+    }
+  }
+  const win = await chrome.windows.create({
+    url: 'about:blank',
+    type: 'normal',
+    focused: false,
+  });
+  if (win && win.id != null) {
+    await updateMonitoringState({ monitorWindowId: win.id });
+    return { windowId: win.id };
+  }
+  throw new Error('Could not create monitor window');
+}
+
+/**
+ * Ensure the scan tab exists in the given window; create if missing. Clears stale tab ID.
+ */
+async function ensureMonitorTab(windowId) {
+  const state = await getMonitoringState();
+  if (state.monitorTabId != null) {
+    try {
+      const tab = await chrome.tabs.get(state.monitorTabId);
+      if (tab.windowId === windowId) return { tabId: tab.id };
+    } catch (_) {}
+    await updateMonitoringState({ monitorTabId: null });
+  }
+  const tab = await chrome.tabs.create({ windowId, url: 'about:blank' });
+  if (tab && tab.id != null) {
+    await updateMonitoringState({ monitorTabId: tab.id });
+    return { tabId: tab.id };
+  }
+  throw new Error('Could not create monitor tab');
+}
+
+/**
+ * Build a Facebook group URL for a tracked group. Returns null if invalid.
+ */
+function getGroupUrlForRotation(group) {
+  if (!group) return null;
+  const url = group.url != null && String(group.url).trim() ? String(group.url).trim() : '';
+  if (url && url.indexOf('facebook.com') !== -1 && url.indexOf('/groups/') !== -1) return url;
+  const id = group.id != null && String(group.id).trim() ? String(group.id).trim() : '';
+  if (id) return 'https://www.facebook.com/groups/' + encodeURIComponent(id);
+  return null;
+}
+
 async function runHeartbeatScan() {
   try {
-    const trackedGroups = await getTrackedGroups();
-    if (trackedGroups.length === 0) return;
+    const state = await getMonitoringState();
 
+    if (state.monitoringEnabled) {
+      const trackedGroups = await getTrackedGroups();
+      if (trackedGroups.length === 0) {
+        scheduleScanHeartbeat();
+        return;
+      }
+      const { windowId } = await ensureMonitorWindow();
+      const { tabId } = await ensureMonitorTab(windowId);
+      const idx = state.nextTrackedGroupIndex % trackedGroups.length;
+      const group = trackedGroups[idx];
+      const url = getGroupUrlForRotation(group);
+      if (url) {
+        await chrome.tabs.update(tabId, { url });
+        const nextIdx = (idx + 1) % trackedGroups.length;
+        await updateMonitoringState({
+          nextTrackedGroupIndex: nextIdx,
+          monitorLastRunAt: new Date().toISOString(),
+        });
+      } else {
+        const nextIdx = (idx + 1) % trackedGroups.length;
+        await updateMonitoringState({ nextTrackedGroupIndex: nextIdx });
+      }
+      scheduleScanHeartbeat();
+      return;
+    }
+
+    // Legacy: scan open tracked group tabs when managed monitoring is off
+    const trackedGroups = await getTrackedGroups();
+    if (trackedGroups.length === 0) {
+      scheduleScanHeartbeat();
+      return;
+    }
     const tabs = await new Promise((resolve) => {
       chrome.tabs.query({ url: 'https://*.facebook.com/*' }, resolve);
     });
-    if (!tabs || tabs.length === 0) return;
-
-    for (let i = 0; i < tabs.length; i++) {
-      const tab = tabs[i];
-      if (!tab.id || !tab.url) continue;
-      if (!tabUrlMatchesTrackedGroup(tab.url, trackedGroups)) continue;
-      try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'RUN_GROUP_SCAN' });
-      } catch (e) {
-        // Tab may be unloaded or content script not ready
-        if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
-          console.warn('[Groopa] Heartbeat send to tab', tab.id, e.message);
+    if (tabs && tabs.length > 0) {
+      for (let i = 0; i < tabs.length; i++) {
+        const tab = tabs[i];
+        if (!tab.id || !tab.url) continue;
+        if (!tabUrlMatchesTrackedGroup(tab.url, trackedGroups)) continue;
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'RUN_GROUP_SCAN' });
+        } catch (e) {
+          if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
+            console.warn('[Groopa] Heartbeat send to tab', tab.id, e.message);
+          }
         }
       }
     }
@@ -363,6 +450,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } catch (err) {
         console.error('[Groopa] MARK_DETECTION_OPENED error', err);
         sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'START_MONITORING') {
+    (async () => {
+      try {
+        await updateMonitoringState({ monitoringEnabled: true });
+        const { windowId } = await ensureMonitorWindow();
+        await ensureMonitorTab(windowId);
+        runHeartbeatScan();
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] START_MONITORING error', err);
+        sendResponse({ ok: false, error: err && err.message ? err.message : 'Failed to start' });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'STOP_MONITORING') {
+    (async () => {
+      try {
+        await updateMonitoringState({ monitoringEnabled: false });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] STOP_MONITORING error', err);
+        sendResponse({ ok: false, error: err && err.message ? err.message : 'Failed to stop' });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'OPEN_MONITOR_WINDOW') {
+    (async () => {
+      try {
+        const { windowId } = await ensureMonitorWindow();
+        await chrome.windows.update(windowId, { focused: true });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] OPEN_MONITOR_WINDOW error', err);
+        sendResponse({ ok: false, error: err && err.message ? err.message : 'Failed to open window' });
       }
     })();
     return true;
