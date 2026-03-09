@@ -14,8 +14,7 @@
         <span class="sidebar-version" id="sidebar-version">—</span>
       </div>
       <nav class="sidebar-nav">
-        <button type="button" class="nav-item nav-item--active" data-panel="keywords">Keywords</button>
-        <button type="button" class="nav-item" data-panel="groups">Groups</button>
+        <button type="button" class="nav-item nav-item--active" data-panel="monitoring">Monitoring</button>
         <button type="button" class="nav-item" data-panel="notifications">Notifications</button>
         <button type="button" class="nav-item" data-panel="account">Account</button>
         <button type="button" class="nav-item" data-panel="debug">Debug</button>
@@ -23,11 +22,12 @@
     </aside>
 
     <main class="main">
-      <section id="panel-keywords" class="panel panel--active">
+      <section id="panel-monitoring" class="panel panel--active">
         <div class="page-header">
-          <h2 class="page-title">Keywords</h2>
-          <p class="page-desc">Manage keywords that Groopa will watch for in your tracked groups.</p>
+          <h2 class="page-title">Monitoring</h2>
+          <p class="page-desc">Keywords, groups, and recent leads in one place.</p>
         </div>
+
         <div class="card">
           <h3 class="card-title">Tracked keywords</h3>
           <p class="card-hint">When a post in a tracked group contains one of these keywords, Groopa will create a lead in your inbox.</p>
@@ -38,17 +38,17 @@
           <div id="keywords-list" class="keywords-list"></div>
           <p id="keywords-empty" class="keywords-empty">No keywords yet. Add one above.</p>
         </div>
-      </section>
 
-      <section id="panel-groups" class="panel">
-        <div class="page-header">
-          <h2 class="page-title">Groups</h2>
-          <p class="page-desc">Choose which Facebook groups to monitor.</p>
-        </div>
         <div class="card">
-          <h3 class="card-title">Detected groups</h3>
+          <h3 class="card-title">Tracked groups</h3>
           <p class="card-hint">Visit Facebook group pages to detect them. Toggle Track to start or stop monitoring.</p>
           <div id="detected-groups" class="groups-list"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Inbox</h3>
+          <p class="card-hint">Recent detections from your tracked groups.</p>
+          <div id="inbox-list" class="inbox-list"></div>
         </div>
       </section>
 

@@ -353,6 +353,78 @@ body {
   margin: 0;
 }
 
+/* Inbox (compact list in Monitoring) */
+.inbox-list {
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.inbox-empty {
+  font-size: 13px;
+  color: #888;
+  padding: 14px 0;
+  margin: 0;
+}
+
+.inbox-row {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.inbox-row:last-child {
+  margin-bottom: 0;
+}
+
+.inbox-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+
+.inbox-row-group {
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.inbox-row-keyword {
+  font-size: 12px;
+  color: #1877f2;
+  font-weight: 500;
+}
+
+.inbox-row-date {
+  font-size: 11px;
+  color: #666;
+}
+
+.inbox-row-preview {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.inbox-row-actions {
+  margin-top: 4px;
+}
+
+.inbox-row-open {
+  font-size: 12px;
+  color: #1877f2;
+  text-decoration: none;
+}
+
+.inbox-row-open:hover {
+  text-decoration: underline;
+}
+
 /* Account */
 .account-plan,
 .account-version {

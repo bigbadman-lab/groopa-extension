@@ -10,6 +10,7 @@ const loadDemoBtn = document.getElementById('load-demo-btn');
 const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
+const inboxListEl = document.getElementById('inbox-list');
 const accountPlanEl = document.getElementById('account-plan');
 const accountVersionEl = document.getElementById('account-version');
 const sidebarVersionEl = document.getElementById('sidebar-version');
@@ -17,6 +18,7 @@ const sidebarVersionEl = document.getElementById('sidebar-version');
 let detectedGroupsList = [];
 let trackedGroupsList = [];
 let keywordList = [];
+let detectionsList = [];
 
 const DEMO_NOW = new Date().toISOString();
 const DEMO_DETECTED_GROUPS = [
@@ -49,9 +51,11 @@ async function loadPage() {
   keywordList = Array.isArray(settings.keywords) ? settings.keywords.slice() : [];
   detectedGroupsList = Array.isArray(settings.detectedGroups) ? settings.detectedGroups.slice() : [];
   trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
+  detectionsList = Array.isArray(settings.detections) ? settings.detections.slice() : [];
 
   renderKeywords();
   renderDetectedGroups();
+  renderInbox();
   updateAccountPanel(settings.isPaidUser);
 
   try {
@@ -173,6 +177,46 @@ function renderDetectedGroups() {
   });
 }
 
+function formatOptDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (_) {
+    return iso;
+  }
+}
+
+function renderInbox() {
+  if (!inboxListEl) return;
+  const list = detectionsList.slice(0, 50);
+  if (list.length === 0) {
+    inboxListEl.innerHTML = '<p class="inbox-empty">No leads yet. Add keywords and track groups to start.</p>';
+    return;
+  }
+  const previewLen = 80;
+  inboxListEl.innerHTML = list
+    .map((d) => {
+      const groupLabel = escapeOpt(d.groupName || d.groupIdentifier || 'Group');
+      const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+      const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
+      const keywordLabel = escapeOpt(d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : ''));
+      const dateStr = formatOptDate(d.createdAt);
+      const url = d.pageUrl || '';
+      const openLink = url ? `<a href="${escapeOpt(url)}" target="_blank" rel="noopener" class="inbox-row-open">Open</a>` : '';
+      return `<div class="inbox-row">
+        <div class="inbox-row-main">
+          <span class="inbox-row-group">${groupLabel}</span>
+          <span class="inbox-row-keyword">${keywordLabel}</span>
+          <span class="inbox-row-date">${dateStr}</span>
+        </div>
+        <div class="inbox-row-preview">${escapeOpt(preview)}</div>
+        ${openLink ? '<div class="inbox-row-actions">' + openLink + '</div>' : ''}
+      </div>`;
+    })
+    .join('');
+}
+
 function showDemoMessage(text) {
   if (demoMessageEl) {
     demoMessageEl.textContent = text;
@@ -188,15 +232,19 @@ loadDemoBtn.addEventListener('click', async () => {
   await saveDetectedGroups(detectedGroupsList);
   await saveTrackedGroups(trackedGroupsList);
   await saveDetections(DEMO_DETECTIONS);
+  detectionsList = DEMO_DETECTIONS.slice();
   renderDetectedGroups();
+  renderInbox();
   showDemoMessage('Demo data loaded. Open the popup to see it.');
 });
 
 clearDemoBtn.addEventListener('click', async () => {
   detectedGroupsList = [];
   trackedGroupsList = [];
+  detectionsList = [];
   await clearDemoData();
   renderDetectedGroups();
+  renderInbox();
   showDemoMessage('Demo data cleared.');
 });
 
