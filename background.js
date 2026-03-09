@@ -199,6 +199,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             source: 'page_scan',
             type: 'keyword_match',
             fingerprint,
+            status: 'new',
             author: 'Page scan',
             text: textPreview,
             keywordMatched: matchedKeywords[0] || matchedKeywords.join(', '),
@@ -247,6 +248,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[Groopa] UNTRACK_GROUP error', err);
+        sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'MARK_DETECTION_OPENED') {
+    (async () => {
+      try {
+        const fingerprint = message.fingerprint;
+        if (!fingerprint) {
+          sendResponse({ ok: false, error: 'Missing fingerprint' });
+          return;
+        }
+        await updateDetectionStatus(fingerprint, 'opened');
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] MARK_DETECTION_OPENED error', err);
         sendResponse({ error: String(err.message) });
       }
     })();

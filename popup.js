@@ -11,6 +11,15 @@ const recentDetectionsEl = document.getElementById('recent-detections');
 const facebookContextEl = document.getElementById('facebook-context');
 const visiblePostCandidatesEl = document.getElementById('visible-post-candidates');
 const openSettingsBtn = document.getElementById('open-settings');
+const detectionDetailPanel = document.getElementById('detection-detail');
+const detectionDetailBack = document.getElementById('detection-detail-back');
+const detectionDetailGroup = document.getElementById('detection-detail-group');
+const detectionDetailText = document.getElementById('detection-detail-text');
+const detectionDetailKeywords = document.getElementById('detection-detail-keywords');
+const detectionDetailOpenFb = document.getElementById('detection-detail-open-fb');
+
+/** Last rendered detections list (used when opening a detection so we have the full object). */
+let lastDetectionsList = [];
 
 // Escape HTML so user content is safe to show
 function escapeHtml(str) {
@@ -201,27 +210,70 @@ async function loadAndRender() {
     });
   }
 
-  // Recent detections list (real stored detections: demo or keyword-match from page scan)
+  // Recent detections: inbox list (clickable rows)
+  lastDetectionsList = detectionsList;
   if (detectionsList.length === 0) {
     recentDetectionsEl.className = 'placeholder-content';
     recentDetectionsEl.innerHTML = '<p class="placeholder-text">No detections yet.</p>';
+    detectionDetailPanel.hidden = true;
   } else {
     recentDetectionsEl.className = 'list-content';
+    const previewLen = 80;
     recentDetectionsEl.innerHTML = detectionsList
       .map((d) => {
         const groupLabel = d.groupName || d.groupIdentifier || 'Group';
-        const author = d.author != null ? d.author : '';
         const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+        const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
         const keywordLabel = d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : '');
-        return `<div class="list-item detection-item">
-            <div class="detection-meta">${escapeHtml(groupLabel)}${author ? ' · ' + escapeHtml(author) : ''} · ${formatDate(d.createdAt)}</div>
-            <div class="detection-text">${escapeHtml(text)}</div>
-            <div class="detection-keyword">Keyword: ${escapeHtml(keywordLabel)}</div>
-          </div>`;
+        const status = d.status === 'opened' ? 'opened' : 'new';
+        const newBadge = status === 'new' ? '<span class="detection-new-badge">New</span>' : '';
+        return `<button type="button" class="list-item detection-item inbox-item" data-fingerprint="${escapeHtml(d.fingerprint || '')}">
+            <div class="detection-meta">${escapeHtml(groupLabel)} · ${formatDate(d.createdAt)} ${newBadge}</div>
+            <div class="detection-text">${escapeHtml(preview)}</div>
+            <div class="detection-keyword">${escapeHtml(keywordLabel)}</div>
+          </button>`;
       })
       .join('');
+
+    recentDetectionsEl.querySelectorAll('.inbox-item').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const fingerprint = btn.dataset.fingerprint;
+        const detection = lastDetectionsList.find((d) => d.fingerprint === fingerprint);
+        if (!detection) return;
+        const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'MARK_DETECTION_OPENED', fingerprint }, r));
+        if (!chrome.runtime.lastError && res && res.ok) {
+          detection.status = 'opened';
+        }
+        showDetectionDetail(detection);
+      });
+    });
   }
+  detectionDetailPanel.hidden = true;
 }
+
+function showDetectionDetail(detection) {
+  const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
+  const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
+  detectionDetailGroup.textContent = groupLabel;
+  detectionDetailText.textContent = text || '—';
+  detectionDetailKeywords.textContent = 'Keywords: ' + keywordLabel;
+  detectionDetailOpenFb.dataset.url = detection.pageUrl || '';
+  recentDetectionsEl.hidden = true;
+  detectionDetailPanel.hidden = false;
+}
+
+function showDetectionsList() {
+  detectionDetailPanel.hidden = true;
+  recentDetectionsEl.hidden = false;
+  loadAndRender();
+}
+
+detectionDetailBack.addEventListener('click', showDetectionsList);
+detectionDetailOpenFb.addEventListener('click', () => {
+  const url = detectionDetailOpenFb.dataset.url;
+  if (url) chrome.tabs.create({ url });
+});
 
 loadAndRender();
 

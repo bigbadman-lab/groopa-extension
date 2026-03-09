@@ -47,8 +47,17 @@
 
     <section class="section">
       <h2 class="section-title">Recent detections</h2>
-      <div id="recent-detections" class="placeholder-content">
-        <p class="placeholder-text">No detections yet.</p>
+      <div id="detections-inbox-wrap">
+        <div id="recent-detections" class="placeholder-content">
+          <p class="placeholder-text">No detections yet.</p>
+        </div>
+        <div id="detection-detail" class="detection-detail" hidden>
+          <button type="button" id="detection-detail-back" class="btn-back">← Back to list</button>
+          <p class="detection-detail-group" id="detection-detail-group"></p>
+          <p class="detection-detail-text" id="detection-detail-text"></p>
+          <p class="detection-detail-keywords" id="detection-detail-keywords"></p>
+          <button type="button" id="detection-detail-open-fb" class="btn btn-primary">Open in Facebook</button>
+        </div>
       </div>
     </section>
 

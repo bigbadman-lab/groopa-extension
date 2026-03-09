@@ -184,6 +184,20 @@ async function appendDetectionsIfNew(newDetections) {
 }
 
 /**
+ * Set a detection's status by fingerprint (e.g. "opened").
+ * @param {string} fingerprint
+ * @param {string} status - "new" | "opened"
+ */
+async function updateDetectionStatus(fingerprint, status) {
+  if (!fingerprint) return;
+  const list = await getDetections();
+  const idx = list.findIndex((d) => d.fingerprint === fingerprint);
+  if (idx < 0) return;
+  list[idx] = { ...list[idx], status: status === 'opened' ? 'opened' : 'new' };
+  await saveDetections(list);
+}
+
+/**
  * @returns {Promise<object[]>}
  */
 async function getDetectedGroups() {

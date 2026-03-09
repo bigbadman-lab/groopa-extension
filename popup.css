@@ -270,3 +270,87 @@ body {
   color: #1877f2;
   font-weight: 500;
 }
+
+/* Inbox: clickable detection row */
+.inbox-item {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.inbox-item:hover {
+  background: #eee;
+}
+
+.detection-new-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #1877f2;
+  color: #fff;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* Detection detail view */
+.detection-detail {
+  background: #f8f8f8;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  padding: 12px;
+}
+
+.btn-back {
+  margin-bottom: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: #1877f2;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.btn-back:hover {
+  text-decoration: underline;
+}
+
+.detection-detail-group {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.detection-detail-text {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detection-detail-keywords {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #1877f2;
+  font-weight: 500;
+}
+
+.btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+}
+.btn-primary {
+  background: #1877f2;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #166fe5;
+}
