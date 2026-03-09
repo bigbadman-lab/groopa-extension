@@ -184,6 +184,23 @@ body {
   margin: 0;
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.add-group-form {
+  margin-top: 12px;
+}
+
+.add-group-form .add-group-row {
+  margin-bottom: 8px;
+}
+
+.add-group-form-actions {
+  margin-bottom: 8px;
+}
+
 .add-group-row {
   display: flex;
   gap: 10px;
@@ -296,6 +313,16 @@ body {
 }
 
 /* Groups list */
+.groups-list-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
 .groups-list {
   margin: 0;
 }

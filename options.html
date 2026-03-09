@@ -41,17 +41,25 @@
 
         <div class="card">
           <h3 class="card-title">Add Facebook Group</h3>
-          <p class="card-hint">Paste a Facebook group URL to start tracking it manually.</p>
-          <div class="add-group-row">
-            <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
-            <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
+          <p class="card-hint">Add a group by URL if you already have the link.</p>
+          <button type="button" id="add-manually-btn" class="btn btn-secondary btn-sm">Add manually</button>
+          <div id="add-group-form" class="add-group-form" hidden>
+            <div class="add-group-row">
+              <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
+              <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
+            </div>
+            <div class="add-group-form-actions">
+              <button type="button" id="add-group-cancel" class="btn btn-secondary">Cancel</button>
+            </div>
+            <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
           </div>
-          <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
         </div>
         <div class="card">
           <h3 class="card-title">Tracked groups</h3>
           <p class="card-hint">Visit Facebook group pages to detect them, or add a URL above. Toggle Track to start or stop monitoring.</p>
-          <div id="detected-groups" class="groups-list"></div>
+          <div class="groups-list-scroll">
+            <div id="detected-groups" class="groups-list"></div>
+          </div>
         </div>
 
         <div class="card card-inbox">

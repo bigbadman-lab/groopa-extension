@@ -25,6 +25,9 @@ const inboxOpenPostLink = document.getElementById('inbox-open-post');
 const addGroupUrlInput = document.getElementById('add-group-url');
 const addGroupBtn = document.getElementById('add-group-btn');
 const addGroupErrorEl = document.getElementById('add-group-error');
+const addManuallyBtn = document.getElementById('add-manually-btn');
+const addGroupFormEl = document.getElementById('add-group-form');
+const addGroupCancelBtn = document.getElementById('add-group-cancel');
 const accountPlanEl = document.getElementById('account-plan');
 const accountVersionEl = document.getElementById('account-version');
 const sidebarVersionEl = document.getElementById('sidebar-version');
@@ -123,6 +126,27 @@ function renderKeywords() {
   });
 }
 
+function showAddGroupForm() {
+  if (addGroupFormEl) {
+    addGroupFormEl.hidden = false;
+    addGroupUrlInput && addGroupUrlInput.focus();
+  }
+}
+
+function hideAddGroupForm() {
+  if (addGroupFormEl) addGroupFormEl.hidden = true;
+  if (addGroupUrlInput) addGroupUrlInput.value = '';
+  if (addGroupErrorEl) addGroupErrorEl.textContent = '';
+}
+
+if (addManuallyBtn) {
+  addManuallyBtn.addEventListener('click', () => showAddGroupForm());
+}
+
+if (addGroupCancelBtn) {
+  addGroupCancelBtn.addEventListener('click', () => hideAddGroupForm());
+}
+
 if (addGroupBtn && addGroupUrlInput) {
   addGroupBtn.addEventListener('click', async () => {
     if (addGroupErrorEl) addGroupErrorEl.textContent = '';
@@ -137,6 +161,7 @@ if (addGroupBtn && addGroupUrlInput) {
       await upsertDetectedGroup({ ...group, slug: parsed.slug, source: 'manual' });
       await addTrackedGroup(group);
       addGroupUrlInput.value = '';
+      hideAddGroupForm();
       detectedGroupsList = await getDetectedGroups();
       trackedGroupsList = await getTrackedGroups();
       renderDetectedGroups();
