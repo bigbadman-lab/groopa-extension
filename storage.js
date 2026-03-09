@@ -277,6 +277,37 @@ function getSlugFromGroupUrl(url) {
 }
 
 /**
+ * Strip unstable Facebook UI noise from extracted post text so the same post
+ * produces the same fingerprint across scans. Removes relative times (54m, 1h, 3d)
+ * and action labels (Like, Reply, Share). Use the result only for fingerprinting;
+ * keep raw textPreview for display.
+ */
+function cleanPostTextForFingerprint(text) {
+  if (text == null || typeof text !== 'string') return '';
+  var s = String(text)
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .trim();
+  // Trailing action labels (e.g. "Like Reply Share", "Comment Send")
+  s = s.replace(/\s*(?:like|reply|share|comment|send)(?:\s*(?:like|reply|share|comment|send))*\s*$/gi, '');
+  // Relative time at end (54m, 1h, 3d, 2w, 5 hrs, 2 days, Just now, Yesterday, Today)
+  s = s.replace(/\s*\d+\s*[mhdw]\b\s*$/gi, '');
+  s = s.replace(/\s*\d+\s*hrs?\s*$/gi, '');
+  s = s.replace(/\s*\d+\s*days?\s*$/gi, '');
+  s = s.replace(/\s*just\s+now\s*$/gi, '');
+  s = s.replace(/\s*yesterday\s*$/gi, '');
+  s = s.replace(/\s*today\s*$/gi, '');
+  // Any remaining standalone relative time tokens elsewhere (54m, 1h, etc.)
+  s = s.replace(/\b\d+\s*[mhdw]\b/gi, '');
+  s = s.replace(/\b\d+\s*hrs?\b/gi, '');
+  s = s.replace(/\b\d+\s*days?\b/gi, '');
+  s = s.replace(/\bjust\s+now\b/gi, '');
+  s = s.replace(/\byesterday\b/gi, '');
+  s = s.replace(/\btoday\b/gi, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+/**
  * Strong normalization for fingerprint/dedupe only: lowercase, trim, collapse whitespace,
  * remove zero-width/invisible chars, strip trailing ellipsis so same post always has same fingerprint.
  * Used by buildDetectionFingerprint and for consistent keyword normalization.
@@ -301,7 +332,7 @@ const FINGERPRINT_PREVIEW_LEN = 200;
  * @param {string} [opts.groupId] - stable group id if known
  * @param {string} [opts.groupSlug] - slug from URL (e.g. getSlugFromGroupUrl(pageUrl))
  * @param {string} [opts.pageUrl] - fallback to derive group from URL
- * @param {string} opts.textPreview - raw post text (will be normalized inside)
+ * @param {string} opts.textPreview - raw post text (cleaned for fingerprint only; keep raw for display)
  * @param {string[]} opts.matchedKeywords - matched keywords (will be normalized and sorted)
  * @returns {string}
  */
@@ -322,7 +353,8 @@ function buildDetectionFingerprint(opts) {
     else groupKey = (normalizeFacebookGroupUrl(pageUrl) || '').toLowerCase();
   }
 
-  const preview = normalizeTextForFingerprint(textPreview).slice(0, FINGERPRINT_PREVIEW_LEN);
+  var cleaned = cleanPostTextForFingerprint(textPreview);
+  const preview = normalizeTextForFingerprint(cleaned).slice(0, FINGERPRINT_PREVIEW_LEN);
   const kws = matchedKeywords
     .map(function (k) {
       return (k != null && String(k).trim()) ? normalizeTextForFingerprint(String(k).trim()) : '';
