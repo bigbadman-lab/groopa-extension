@@ -37,6 +37,7 @@ const monitorStartBtn = document.getElementById('monitor-start-btn');
 const monitorStopBtn = document.getElementById('monitor-stop-btn');
 const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
 const monitorWindowHint = document.getElementById('monitor-window-hint');
+const monitorValidationMsg = document.getElementById('monitor-validation-msg');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -454,6 +455,10 @@ clearDemoBtn.addEventListener('click', async () => {
 
 if (monitorStartBtn) {
   monitorStartBtn.addEventListener('click', async () => {
+    if (trackedGroupsList.length === 0) {
+      if (monitorValidationMsg) monitorValidationMsg.hidden = false;
+      return;
+    }
     try {
       await chrome.runtime.sendMessage({ type: 'START_MONITORING' });
       await refreshMonitorStatus();

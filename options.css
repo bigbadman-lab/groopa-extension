@@ -235,6 +235,28 @@ body {
   color: #666;
 }
 
+.monitor-validation-msg {
+  margin: 0 0 16px 0;
+  padding: 14px 16px;
+  background: #f0f4ff;
+  border: 1px solid #c5d4f7;
+  border-radius: 10px;
+}
+
+.monitor-validation-title {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a3a6e;
+}
+
+.monitor-validation-body {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.45;
+}
+
 /* Keywords */
 .keywords-add-row {
   display: flex;
