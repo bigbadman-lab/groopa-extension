@@ -110,6 +110,48 @@ async function saveTrackedGroups(trackedGroups) {
 }
 
 /**
+ * True if two groups are the same (by id, slug, or normalized URL).
+ * @param {object} a - { id?, slug?, url? }
+ * @param {object} b - { id?, slug?, url? }
+ */
+function groupMatches(a, b) {
+  const keyA = getNormalizedKey(a.id, a.slug, a.url);
+  const keyB = getNormalizedKey(b.id, b.slug, b.url);
+  if (keyA && keyB && keyA === keyB) return true;
+  const normA = normalizeFacebookGroupUrl(a.url || '');
+  const normB = normalizeFacebookGroupUrl(b.url || '');
+  return !!normA && !!normB && normA === normB;
+}
+
+/**
+ * Add a group to trackedGroups if not already present (deduped by id/slug/URL).
+ * @param {object} group - { id, name, url } (slug optional)
+ */
+async function addTrackedGroup(group) {
+  if (!group || (group.id == null && !group.url)) return;
+  const list = await getTrackedGroups();
+  if (list.some((g) => groupMatches(g, group))) return;
+  list.push({
+    id: group.id != null ? String(group.id) : getSlugFromGroupUrl(group.url || ''),
+    name: (group.name != null && String(group.name).trim()) ? String(group.name).trim() : '',
+    url: (group.url != null && String(group.url).trim()) ? String(group.url).trim() : '',
+  });
+  await saveTrackedGroups(list);
+}
+
+/**
+ * Remove a group from trackedGroups (matched by id/slug/URL).
+ * @param {object} group - { id?, slug?, url? }
+ */
+async function removeTrackedGroup(group) {
+  if (!group || (group.id == null && !group.url)) return;
+  const list = await getTrackedGroups();
+  const filtered = list.filter((g) => !groupMatches(g, group));
+  if (filtered.length === list.length) return;
+  await saveTrackedGroups(filtered);
+}
+
+/**
  * @returns {Promise<object[]>}
  */
 async function getDetections() {

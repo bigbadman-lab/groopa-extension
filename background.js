@@ -216,4 +216,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+
+  if (message.type === 'TRACK_GROUP') {
+    (async () => {
+      try {
+        const group = message.group;
+        if (!group) {
+          sendResponse({ ok: false, error: 'Missing group' });
+          return;
+        }
+        await addTrackedGroup({ id: group.id, name: group.name, url: group.url });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] TRACK_GROUP error', err);
+        sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'UNTRACK_GROUP') {
+    (async () => {
+      try {
+        const group = message.group;
+        if (!group) {
+          sendResponse({ ok: false, error: 'Missing group' });
+          return;
+        }
+        await removeTrackedGroup({ id: group.id, slug: group.slug, url: group.url });
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('[Groopa] UNTRACK_GROUP error', err);
+        sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
 });

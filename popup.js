@@ -86,9 +86,8 @@ async function loadAndRender() {
   const detectionsList = settings.detections;
   const pagePostCandidatesList = settings.pagePostCandidates || [];
 
-  function isTracked(groupId) {
-    const id = groupId != null ? String(groupId) : '';
-    return trackedGroupsList.some((g) => String(g.id) === id);
+  function isGroupTracked(group) {
+    return trackedGroupsList.some((t) => groupMatches(t, group));
   }
 
   if (status && !status.error) {
@@ -160,24 +159,46 @@ async function loadAndRender() {
     keywordsChips.appendChild(chip);
   });
 
-  // Tracked groups list: show all detected groups, with Tracking enabled / Detected, not selected
+  // Tracked groups list: show detected groups with Track / Untrack buttons
   if (detectedGroupsList.length === 0) {
     trackedGroupsEl.className = 'placeholder-content';
-    trackedGroupsEl.innerHTML = '<p class="placeholder-text">No groups detected yet. Visit Facebook group pages or add demo data in Settings.</p>';
+    trackedGroupsEl.innerHTML = '<p class="placeholder-text">Visit Facebook groups you are a member of and Groopa will automatically detect them.</p>';
   } else {
     trackedGroupsEl.className = 'list-content';
     trackedGroupsEl.innerHTML = detectedGroupsList
-      .map(
-        (g) => {
-          const lastSeen = g.lastSeenAt ? formatDate(g.lastSeenAt) : '—';
-          return `<div class="list-item group-item">
+      .map((g) => {
+        const lastSeen = g.lastSeenAt ? formatDate(g.lastSeenAt) : '—';
+        const tracked = isGroupTracked(g);
+        const id = escapeHtml((g.id != null ? g.id : '').toString());
+        const name = escapeHtml((g.name != null ? g.name : '').toString());
+        const url = escapeHtml((g.url != null ? g.url : '').toString());
+        const slug = escapeHtml((g.slug != null ? g.slug : '').toString());
+        const btn = tracked
+          ? `<button type="button" class="btn-untrack" data-group-id="${id}" data-group-name="${name}" data-group-url="${url}" data-group-slug="${slug}">Untrack</button>`
+          : `<button type="button" class="btn-track" data-group-id="${id}" data-group-name="${name}" data-group-url="${url}">Track</button>`;
+        return `<div class="list-item group-item">
             <a class="group-name" href="${escapeHtml(g.url || '#')}" target="_blank" rel="noopener">${escapeHtml(g.name || '')}</a>
-            <span class="group-status">${isTracked(g.id) ? 'Tracking enabled' : 'Detected, not selected'}</span>
+            <span class="group-status">${tracked ? 'Tracking' : 'Not tracking'}</span>
             <span class="group-last-seen">Last seen: ${escapeHtml(lastSeen)}</span>
+            ${btn}
           </div>`;
-        }
-      )
+      })
       .join('');
+
+    trackedGroupsEl.querySelectorAll('.btn-track').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const group = { id: el.dataset.groupId, name: el.dataset.groupName, url: el.dataset.groupUrl };
+        const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'TRACK_GROUP', group }, r));
+        if (!chrome.runtime.lastError && !(res && res.error)) loadAndRender();
+      });
+    });
+    trackedGroupsEl.querySelectorAll('.btn-untrack').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const group = { id: el.dataset.groupId, slug: el.dataset.groupSlug, url: el.dataset.groupUrl };
+        const res = await new Promise((r) => chrome.runtime.sendMessage({ type: 'UNTRACK_GROUP', group }, r));
+        if (!chrome.runtime.lastError && !(res && res.error)) loadAndRender();
+      });
+    });
   }
 
   // Recent detections list (real stored detections: demo or keyword-match from page scan)
