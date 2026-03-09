@@ -1,9 +1,17 @@
 // Groopa background service worker (Manifest V3)
 importScripts('storage.js');
 
+/**
+ * Strong normalization for fingerprint/dedupe: lowercase, trim, collapse whitespace,
+ * remove zero-width/invisible characters so small formatting differences don't create duplicate fingerprints.
+ */
 function normalizeText(text) {
   if (text == null || typeof text !== 'string') return '';
-  return text.trim().replace(/\s+/g, ' ').toLowerCase();
+  return String(text)
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }
 
 function getMatchingKeywords(normalizedText, keywords) {
@@ -18,17 +26,28 @@ function getMatchingKeywords(normalizedText, keywords) {
 }
 
 /**
- * Build a stable fingerprint for dedupe. Uses only:
- * - canonical group URL (normalized, no query/hash so same group = same string)
- * - normalized post text preview (first 200 chars)
- * - matched keywords in sorted order
- * Does NOT use: createdAt, source, timestamps, or array index.
+ * Single stable fingerprint for dedupe. Uses only:
+ * - stable group identity: groupId/slug (preferred) else normalized group URL
+ * - strongly normalized text preview (first 200 chars)
+ * - matched keywords normalized and sorted into stable order
+ * Does NOT use: createdAt, source, timestamps, array index, or attempt label.
  */
-function makeDetectionFingerprint(pageUrl, normalizedPreview, matchedKeywords) {
-  const groupUrl = normalizeFacebookGroupUrl(pageUrl || '') || (pageUrl || '').trim();
+function makeDetectionFingerprint(groupIdentifier, pageUrl, normalizedPreview, matchedKeywords) {
+  const groupKey =
+    groupIdentifier != null && String(groupIdentifier).trim()
+      ? String(groupIdentifier).trim().toLowerCase()
+      : (normalizeFacebookGroupUrl(pageUrl || '') || '').toLowerCase();
   const preview = (normalizedPreview || '').slice(0, 200);
-  const kws = Array.isArray(matchedKeywords) ? matchedKeywords.slice().sort().join(',') : '';
-  return groupUrl + '|' + preview + '|' + kws;
+  const kws = Array.isArray(matchedKeywords)
+    ? matchedKeywords
+        .map(function (k) {
+          return (k != null && String(k).trim()) ? normalizeText(String(k).trim()) : '';
+        })
+        .filter(Boolean)
+        .sort()
+        .join(',')
+    : '';
+  return groupKey + '|' + preview + '|' + kws;
 }
 
 /**
@@ -406,7 +425,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const matchedKeywords = getMatchingKeywords(normalized, keywords);
           if (matchedKeywords.length === 0) continue;
 
-          const fingerprint = makeDetectionFingerprint(pageUrl, normalized, matchedKeywords);
+          const fingerprint = makeDetectionFingerprint(groupIdentifier, pageUrl, normalized, matchedKeywords);
           newDetections.push({
             matchedKeywords,
             textPreview,
@@ -447,10 +466,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const notificationId = 'groopa-scan-' + Date.now();
             await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
             try {
+              const notifTitle = (title && String(title).trim()) ? String(title).trim() : 'Groopa';
+              const notifMessage = (message && String(message).trim()) ? String(message).trim() : 'New lead detected.';
+              const iconUrl = chrome.runtime.getURL('icons/icon128.png');
               chrome.notifications.create(notificationId, {
                 type: 'basic',
-                title,
-                message,
+                iconUrl: iconUrl,
+                title: notifTitle,
+                message: notifMessage,
                 buttons: [{ title: 'Open Lead' }, { title: 'Open Facebook Post' }],
               });
             } catch (notifErr) {

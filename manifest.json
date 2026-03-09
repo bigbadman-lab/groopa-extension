@@ -5,6 +5,9 @@
   "description": "Monitor your paid Facebook groups. Get notified and stay on top of new posts and activity.",
   "permissions": ["storage", "alarms", "notifications", "tabs", "windows"],
   "host_permissions": ["https://*.facebook.com/*"],
+  "icons": {
+    "128": "icons/icon128.png"
+  },
   "background": {
     "service_worker": "background.js"
   },
