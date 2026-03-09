@@ -180,6 +180,8 @@ const MAX_DETECTIONS_STORED = 100;
 
 /**
  * Append new detections, dedupe by fingerprint, keep list under MAX_DETECTIONS_STORED.
+ * Dedupes against existing storage and within the incoming batch (same fingerprint
+ * in multiple candidates only added once).
  * @param {object[]} newDetections - each must have .fingerprint
  * @returns {Promise<object[]>} the detections that were actually added (new)
  */
@@ -187,7 +189,13 @@ async function appendDetectionsIfNew(newDetections) {
   if (!Array.isArray(newDetections) || newDetections.length === 0) return [];
   const existing = await getDetections();
   const seen = new Set(existing.map((d) => d.fingerprint).filter(Boolean));
-  const toAdd = newDetections.filter((d) => d.fingerprint && !seen.has(d.fingerprint));
+  const toAdd = [];
+  for (let i = 0; i < newDetections.length; i++) {
+    const d = newDetections[i];
+    if (!d.fingerprint || seen.has(d.fingerprint)) continue;
+    seen.add(d.fingerprint);
+    toAdd.push(d);
+  }
   if (toAdd.length === 0) return [];
   const combined = [...existing, ...toAdd];
   const trimmed = combined.slice(-MAX_DETECTIONS_STORED);

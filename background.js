@@ -17,10 +17,18 @@ function getMatchingKeywords(normalizedText, keywords) {
   return matched;
 }
 
+/**
+ * Build a stable fingerprint for dedupe. Uses only:
+ * - canonical group URL (normalized, no query/hash so same group = same string)
+ * - normalized post text preview (first 200 chars)
+ * - matched keywords in sorted order
+ * Does NOT use: createdAt, source, timestamps, or array index.
+ */
 function makeDetectionFingerprint(pageUrl, normalizedPreview, matchedKeywords) {
+  const groupUrl = normalizeFacebookGroupUrl(pageUrl || '') || (pageUrl || '').trim();
   const preview = (normalizedPreview || '').slice(0, 200);
   const kws = Array.isArray(matchedKeywords) ? matchedKeywords.slice().sort().join(',') : '';
-  return (pageUrl || '') + '|' + preview + '|' + kws;
+  return groupUrl + '|' + preview + '|' + kws;
 }
 
 /**
