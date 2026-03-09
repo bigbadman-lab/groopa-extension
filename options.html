@@ -40,8 +40,17 @@
         </div>
 
         <div class="card">
+          <h3 class="card-title">Add Facebook Group</h3>
+          <p class="card-hint">Paste a Facebook group URL to start tracking it manually.</p>
+          <div class="add-group-row">
+            <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
+            <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
+          </div>
+          <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
+        </div>
+        <div class="card">
           <h3 class="card-title">Tracked groups</h3>
-          <p class="card-hint">Visit Facebook group pages to detect them. Toggle Track to start or stop monitoring.</p>
+          <p class="card-hint">Visit Facebook group pages to detect them, or add a URL above. Toggle Track to start or stop monitoring.</p>
           <div id="detected-groups" class="groups-list"></div>
         </div>
 

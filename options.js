@@ -11,6 +11,9 @@ const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 const inboxListEl = document.getElementById('inbox-list');
+const addGroupUrlInput = document.getElementById('add-group-url');
+const addGroupBtn = document.getElementById('add-group-btn');
+const addGroupErrorEl = document.getElementById('add-group-error');
 const accountPlanEl = document.getElementById('account-plan');
 const accountVersionEl = document.getElementById('account-version');
 const sidebarVersionEl = document.getElementById('sidebar-version');
@@ -42,6 +45,20 @@ function escapeOpt(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * Validate and parse a Facebook group URL. Returns { slug, url } or null if invalid.
+ */
+function parseFacebookGroupUrl(input) {
+  if (!input || typeof input !== 'string') return null;
+  const raw = input.trim();
+  if (!raw) return null;
+  const slug = getSlugFromGroupUrl(raw);
+  if (!slug) return null;
+  const normalizedUrl = normalizeFacebookGroupUrl(raw);
+  if (!normalizedUrl || normalizedUrl.indexOf('/groups/') === -1) return null;
+  return { slug, url: normalizedUrl };
 }
 
 async function loadPage() {
@@ -90,6 +107,29 @@ function renderKeywords() {
       await saveSettings({ keywords: keywordList });
       renderKeywords();
     });
+  });
+}
+
+if (addGroupBtn && addGroupUrlInput) {
+  addGroupBtn.addEventListener('click', async () => {
+    if (addGroupErrorEl) addGroupErrorEl.textContent = '';
+    const raw = (addGroupUrlInput.value || '').trim();
+    const parsed = parseFacebookGroupUrl(raw);
+    if (!parsed) {
+      if (addGroupErrorEl) addGroupErrorEl.textContent = 'Please enter a valid Facebook group URL (e.g. https://www.facebook.com/groups/...).';
+      return;
+    }
+    const group = { id: parsed.slug, name: '', url: parsed.url };
+    try {
+      await upsertDetectedGroup({ ...group, slug: parsed.slug, source: 'manual' });
+      await addTrackedGroup(group);
+      addGroupUrlInput.value = '';
+      detectedGroupsList = await getDetectedGroups();
+      trackedGroupsList = await getTrackedGroups();
+      renderDetectedGroups();
+    } catch (err) {
+      if (addGroupErrorEl) addGroupErrorEl.textContent = err && err.message ? err.message : 'Could not add group.';
+    }
   });
 }
 
