@@ -1,4 +1,4 @@
-// Groopa options page — save/load settings with chrome.storage.sync
+// Groopa options page — save/load settings via storage service
 
 const paidCheckbox = document.getElementById('paid-user');
 const keywordsTextarea = document.getElementById('keywords');
@@ -27,14 +27,16 @@ const DEMO_DETECTIONS = [
 ];
 
 // Load saved values when page opens
-chrome.storage.sync.get(['isPaidUser', 'keywords', 'soundEnabled', 'trackedGroups'], (result) => {
-  paidCheckbox.checked = result.isPaidUser === true;
-  const keywords = result.keywords || [];
-  keywordsTextarea.value = Array.isArray(keywords) ? keywords.join('\n') : '';
-  soundCheckbox.checked = result.soundEnabled !== false;
-  trackedGroupsList = Array.isArray(result.trackedGroups) ? result.trackedGroups.slice() : [];
+async function loadPage() {
+  const settings = await getSettings();
+  paidCheckbox.checked = settings.isPaidUser;
+  keywordsTextarea.value = Array.isArray(settings.keywords) ? settings.keywords.join('\n') : '';
+  soundCheckbox.checked = settings.soundEnabled;
+  trackedGroupsList = settings.trackedGroups.slice();
   renderDetectedGroups();
-});
+}
+
+loadPage();
 
 function renderDetectedGroups() {
   if (trackedGroupsList.length === 0) {
@@ -58,11 +60,11 @@ function renderDetectedGroups() {
     .join('');
 
   detectedGroupsEl.querySelectorAll('.track-option input[type="checkbox"]').forEach((cb) => {
-    cb.addEventListener('change', () => {
+    cb.addEventListener('change', async () => {
       const index = parseInt(cb.dataset.index, 10);
       if (!isNaN(index) && trackedGroupsList[index]) {
         trackedGroupsList[index].selected = cb.checked;
-        chrome.storage.sync.set({ trackedGroups: trackedGroupsList });
+        await saveTrackedGroups(trackedGroupsList);
       }
     });
   });
@@ -80,21 +82,23 @@ function escapeOpt(str) {
 }
 
 // Save when user clicks Save Settings
-saveBtn.addEventListener('click', () => {
-  const isPaidUser = paidCheckbox.checked;
+saveBtn.addEventListener('click', async () => {
   const keywordsText = keywordsTextarea.value || '';
   const keywords = keywordsText
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  const soundEnabled = soundCheckbox.checked;
 
-  chrome.storage.sync.set({ isPaidUser, keywords, soundEnabled, trackedGroups: trackedGroupsList }, () => {
-    saveMessage.style.display = 'block';
-    setTimeout(() => {
-      saveMessage.style.display = 'none';
-    }, 2000);
+  await saveSettings({
+    isPaidUser: paidCheckbox.checked,
+    keywords,
+    soundEnabled: soundCheckbox.checked,
+    trackedGroups: trackedGroupsList,
   });
+  saveMessage.style.display = 'block';
+  setTimeout(() => {
+    saveMessage.style.display = 'none';
+  }, 2000);
 });
 
 function showDemoMessage(text) {
@@ -105,21 +109,17 @@ function showDemoMessage(text) {
   }, 2500);
 }
 
-loadDemoBtn.addEventListener('click', () => {
+loadDemoBtn.addEventListener('click', async () => {
   trackedGroupsList = DEMO_TRACKED_GROUPS.slice();
-  chrome.storage.sync.set(
-    { trackedGroups: DEMO_TRACKED_GROUPS, detections: DEMO_DETECTIONS },
-    () => {
-      renderDetectedGroups();
-      showDemoMessage('Demo data loaded. Open the popup to see it.');
-    }
-  );
+  await saveTrackedGroups(DEMO_TRACKED_GROUPS);
+  await saveDetections(DEMO_DETECTIONS);
+  renderDetectedGroups();
+  showDemoMessage('Demo data loaded. Open the popup to see it.');
 });
 
-clearDemoBtn.addEventListener('click', () => {
+clearDemoBtn.addEventListener('click', async () => {
   trackedGroupsList = [];
-  chrome.storage.sync.set({ trackedGroups: [], detections: [] }, () => {
-    renderDetectedGroups();
-    showDemoMessage('Demo data cleared.');
-  });
+  await clearDemoData();
+  renderDetectedGroups();
+  showDemoMessage('Demo data cleared.');
 });
