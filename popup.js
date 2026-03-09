@@ -24,6 +24,8 @@ const toggleMoreBtn = document.getElementById('toggle-more');
 const collapsibleContent = document.getElementById('collapsible-content');
 const collapsibleSection = document.querySelector('.collapsible-section');
 const recentScansEl = document.getElementById('recent-scans');
+const recentScansSectionEl = document.getElementById('recent-scans-section');
+const inboxSectionEl = document.getElementById('inbox-section');
 
 /** Last rendered detections list (used when opening a detection so we have the full object). */
 let lastDetectionsList = [];
@@ -137,20 +139,21 @@ async function loadAndRender() {
   }
 
   // Latest group scans: detected groups sorted by lastSeenAt, top 5
+  const recentScansWithDate = (detectedGroupsList || [])
+    .filter((g) => g && (g.lastSeenAt || g.name))
+    .map((g) => ({ name: g.name || g.slug || 'Group', lastSeenAt: g.lastSeenAt || null }))
+    .sort((a, b) => {
+      if (!a.lastSeenAt) return 1;
+      if (!b.lastSeenAt) return -1;
+      return new Date(b.lastSeenAt) - new Date(a.lastSeenAt);
+    })
+    .slice(0, 5);
+
   if (recentScansEl) {
-    const withDate = (detectedGroupsList || [])
-      .filter((g) => g && (g.lastSeenAt || g.name))
-      .map((g) => ({ name: g.name || g.slug || 'Group', lastSeenAt: g.lastSeenAt || null }))
-      .sort((a, b) => {
-        if (!a.lastSeenAt) return 1;
-        if (!b.lastSeenAt) return -1;
-        return new Date(b.lastSeenAt) - new Date(a.lastSeenAt);
-      })
-      .slice(0, 5);
-    if (withDate.length === 0) {
+    if (recentScansWithDate.length === 0) {
       recentScansEl.innerHTML = '<p class="placeholder-text">No recent scans yet.</p>';
     } else {
-      recentScansEl.innerHTML = withDate
+      recentScansEl.innerHTML = recentScansWithDate
         .map(
           (g) =>
             `<div class="recent-scan-item">
@@ -160,6 +163,10 @@ async function loadAndRender() {
         )
         .join('');
     }
+  }
+
+  if (recentScansSectionEl) {
+    recentScansSectionEl.hidden = !(trackedGroupsList.length > 0 || recentScansWithDate.length > 0);
   }
 
   // Facebook context panel (from status or from settings when background unavailable)
@@ -285,6 +292,9 @@ async function loadAndRender() {
         showLeadDetail(detection);
       });
     });
+  }
+  if (inboxSectionEl) {
+    inboxSectionEl.hidden = detectionsList.length === 0;
   }
   if (inboxListEl && leadDetailViewEl && !leadDetailViewEl.hidden) return;
   if (inboxListEl) inboxListEl.hidden = false;
