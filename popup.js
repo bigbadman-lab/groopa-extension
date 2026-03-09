@@ -1,7 +1,7 @@
 // Groopa popup — dashboard: live status from background + storage for lists
 
-const heroStatus = document.getElementById('hero-status');
-const heroDetail = document.getElementById('hero-detail');
+const headerStatusEl = document.getElementById('header-status');
+const headerSublineEl = document.getElementById('header-subline');
 const countKeywords = document.getElementById('count-keywords');
 const countGroups = document.getElementById('count-groups');
 const countDetections = document.getElementById('count-detections');
@@ -11,13 +11,15 @@ const recentDetectionsEl = document.getElementById('recent-detections');
 const facebookContextEl = document.getElementById('facebook-context');
 const visiblePostCandidatesEl = document.getElementById('visible-post-candidates');
 const openSettingsBtn = document.getElementById('open-settings');
-const detectionDetailPanel = document.getElementById('detection-detail');
-const detectionDetailBack = document.getElementById('detection-detail-back');
-const detectionDetailGroup = document.getElementById('detection-detail-group');
-const detectionDetailText = document.getElementById('detection-detail-text');
-const detectionDetailKeywords = document.getElementById('detection-detail-keywords');
-const detectionDetailOpenFb = document.getElementById('detection-detail-open-fb');
-const detailPlaceholder = document.getElementById('detail-placeholder');
+const inboxListEl = document.getElementById('inbox-list');
+const leadDetailViewEl = document.getElementById('lead-detail-view');
+const leadDetailBack = document.getElementById('lead-detail-back');
+const leadDetailGroup = document.getElementById('lead-detail-group');
+const leadDetailTime = document.getElementById('lead-detail-time');
+const leadDetailText = document.getElementById('lead-detail-text');
+const leadDetailKeywords = document.getElementById('lead-detail-keywords');
+const leadDetailAiBtn = document.getElementById('lead-detail-ai-btn');
+const leadDetailOpenFb = document.getElementById('lead-detail-open-fb');
 const toggleMoreBtn = document.getElementById('toggle-more');
 const collapsibleContent = document.getElementById('collapsible-content');
 const collapsibleSection = document.querySelector('.collapsible-section');
@@ -83,31 +85,16 @@ function getExtensionStatus() {
   });
 }
 
-// Build hero detail line from status; if group page detected, mention it and candidate count
-function heroDetailFromStatus(status) {
-  const parts = [];
-  const ctx = status.lastFacebookContext;
-  if (ctx && ctx.isGroupPage && (ctx.groupName || ctx.groupIdentifier)) {
-    parts.push('Viewing group: ' + (ctx.groupName || ctx.groupIdentifier));
-    const cand = status.pagePostCandidateCount != null ? status.pagePostCandidateCount : 0;
-    if (cand > 0) parts.push(cand + ' post candidate' + (cand === 1 ? '' : 's') + ' on page');
+// Simple product-style header: Active | Ready | Inactive + one short subline
+function getHeaderState(isPaidUser, trackedCount) {
+  const count = typeof trackedCount === 'number' ? trackedCount : 0;
+  if (!isPaidUser) {
+    return { status: 'Inactive', statusClass: 'header-status--inactive', subline: 'Enable in Settings' };
   }
-  parts.push(status.soundEnabled ? 'Sound on' : 'Sound off');
-  const sel = status.selectedGroupCount != null ? status.selectedGroupCount : 0;
-  const det = status.detectedGroupCount != null ? status.detectedGroupCount : 0;
-  parts.push(`${sel} of ${det} group${det === 1 ? '' : 's'} tracked`);
-  if (status.activityCount != null && status.activityCount > 0) {
-    parts.push(`${status.activityCount} page load${status.activityCount === 1 ? '' : 's'}`);
-    if (status.latestActivity && status.latestActivity.url) {
-      try {
-        const short = new URL(status.latestActivity.url).pathname || status.latestActivity.url;
-        parts.push(`Last: ${short}`);
-      } catch (_) {
-        parts.push('Last activity recorded');
-      }
-    }
+  if (count > 0) {
+    return { status: 'Active', statusClass: 'header-status--active', subline: 'Tracking ' + count + ' group' + (count === 1 ? '' : 's') };
   }
-  return parts.join(' · ');
+  return { status: 'Ready', statusClass: 'header-status--ready', subline: 'Add groups in Settings' };
 }
 
 // Load from background (or fallback) and from storage, then render
@@ -125,30 +112,27 @@ async function loadAndRender() {
     return trackedGroupsList.some((t) => groupMatches(t, group));
   }
 
+  const isPaidUser = status && !status.error ? status.isPaidUser : settings.isPaidUser;
+  const trackedCount = status && !status.error && status.selectedGroupCount != null
+    ? status.selectedGroupCount
+    : trackedGroupsList.length;
+
+  if (headerStatusEl) {
+    const header = getHeaderState(isPaidUser, trackedCount);
+    headerStatusEl.textContent = header.status;
+    headerStatusEl.className = 'header-status ' + header.statusClass;
+  }
+  if (headerSublineEl) {
+    headerSublineEl.textContent = getHeaderState(isPaidUser, trackedCount).subline;
+  }
+
   if (status && !status.error) {
-    // Live status from background
-    heroStatus.textContent = status.isPaidUser ? 'Groopa is ready' : 'Paid access required';
-    heroDetail.textContent = status.isPaidUser
-      ? heroDetailFromStatus(status)
-      : 'Enable paid user access in Settings to use Groopa.';
     countKeywords.textContent = status.keywordCount;
-    countGroups.textContent = status.selectedGroupCount != null ? status.selectedGroupCount : trackedGroupsList.length;
+    countGroups.textContent = trackedCount;
     countDetections.textContent = status.detectionCount;
   } else {
-    // Fallback: compute from settings
-    const selectedCount = trackedGroupsList.length;
-    const detectedCount = detectedGroupsList.length;
-    const ctxFallback = settings.lastFacebookContext;
-    let fallbackDetail = `${settings.soundEnabled ? 'Sound on' : 'Sound off'} · ${selectedCount} of ${detectedCount} groups tracked (background unavailable)`;
-    if (ctxFallback && ctxFallback.isGroupPage && pagePostCandidatesList.length > 0) {
-      fallbackDetail = pagePostCandidatesList.length + ' post candidate' + (pagePostCandidatesList.length === 1 ? '' : 's') + ' on page · ' + fallbackDetail;
-    }
-    heroStatus.textContent = settings.isPaidUser ? 'Groopa is ready' : 'Paid access required';
-    heroDetail.textContent = settings.isPaidUser
-      ? fallbackDetail
-      : 'Enable paid user access in Settings to use Groopa.';
     countKeywords.textContent = keywordList.length;
-    countGroups.textContent = selectedCount;
+    countGroups.textContent = trackedCount;
     countDetections.textContent = detectionsList.length;
   }
 
@@ -262,31 +246,34 @@ async function loadAndRender() {
     });
   }
 
-  // Recent detections: inbox list (clickable rows) — list always visible; detail in right column
+  // Inbox: full-width lead cards (single column)
   lastDetectionsList = detectionsList;
   if (detectionsList.length === 0) {
-    recentDetectionsEl.className = 'placeholder-content';
+    recentDetectionsEl.className = 'placeholder-content inbox-cards';
     recentDetectionsEl.innerHTML = '<p class="placeholder-text">No detections yet.</p>';
   } else {
-    recentDetectionsEl.className = 'list-content';
-    const previewLen = 80;
+    recentDetectionsEl.className = 'inbox-cards';
+    const previewLen = 120;
     recentDetectionsEl.innerHTML = detectionsList
       .map((d) => {
         const groupLabel = d.groupName || d.groupIdentifier || 'Group';
         const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
         const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
         const keywordLabel = d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : '');
-        const status = d.status === 'opened' ? 'opened' : 'new';
-        const newBadge = status === 'new' ? '<span class="detection-new-badge">New</span>' : '';
-        return `<button type="button" class="list-item detection-item inbox-item" data-fingerprint="${escapeHtml(d.fingerprint || '')}">
-            <div class="detection-meta">${escapeHtml(groupLabel)} · ${formatDate(d.createdAt)} ${newBadge}</div>
-            <div class="detection-text">${escapeHtml(preview)}</div>
-            <div class="detection-keyword">${escapeHtml(keywordLabel)}</div>
+        const isNew = d.status !== 'opened';
+        const newBadge = isNew ? '<span class="lead-card-new">New</span>' : '';
+        return `<button type="button" class="lead-card" data-fingerprint="${escapeHtml(d.fingerprint || '')}">
+            <div class="lead-card-group">${escapeHtml(groupLabel)} ${newBadge}</div>
+            <div class="lead-card-preview">${escapeHtml(preview)}</div>
+            <div class="lead-card-meta">
+              <span class="lead-card-keywords">${escapeHtml(keywordLabel)}</span>
+              <span>${escapeHtml(formatDate(d.createdAt))}</span>
+            </div>
           </button>`;
       })
       .join('');
 
-    recentDetectionsEl.querySelectorAll('.inbox-item').forEach((btn) => {
+    recentDetectionsEl.querySelectorAll('.lead-card').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const fingerprint = btn.dataset.fingerprint;
         const detection = lastDetectionsList.find((d) => d.fingerprint === fingerprint);
@@ -295,39 +282,51 @@ async function loadAndRender() {
         if (!chrome.runtime.lastError && res && res.ok) {
           detection.status = 'opened';
         }
-        showDetectionDetail(detection);
+        showLeadDetail(detection);
       });
     });
   }
-  // Right column: show placeholder when no detection selected, detail when one is selected
-  if (detailPlaceholder) {
-    detailPlaceholder.hidden = !detectionDetailPanel.hidden;
-  }
+  if (inboxListEl && leadDetailViewEl && !leadDetailViewEl.hidden) return;
+  if (inboxListEl) inboxListEl.hidden = false;
+  if (leadDetailViewEl) leadDetailViewEl.hidden = true;
 }
 
-function showDetectionDetail(detection) {
+function showLeadDetail(detection) {
   const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
   const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
   const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
-  detectionDetailGroup.textContent = groupLabel;
-  detectionDetailText.textContent = text || '—';
-  detectionDetailKeywords.textContent = 'Keywords: ' + keywordLabel;
-  detectionDetailOpenFb.dataset.url = detection.pageUrl || '';
-  detailPlaceholder.hidden = true;
-  detectionDetailPanel.hidden = false;
+  leadDetailGroup.textContent = groupLabel;
+  leadDetailTime.textContent = 'Detected ' + formatDate(detection.createdAt);
+  leadDetailText.textContent = text || '—';
+  leadDetailKeywords.textContent = 'Matched: ' + keywordLabel;
+  leadDetailOpenFb.dataset.url = detection.pageUrl || '';
+  inboxListEl.hidden = true;
+  leadDetailViewEl.hidden = false;
 }
 
-function showDetectionsList() {
-  detailPlaceholder.hidden = false;
-  detectionDetailPanel.hidden = true;
+function showInboxList() {
+  leadDetailViewEl.hidden = true;
+  inboxListEl.hidden = false;
   loadAndRender();
 }
 
-detectionDetailBack.addEventListener('click', showDetectionsList);
-detectionDetailOpenFb.addEventListener('click', () => {
-  const url = detectionDetailOpenFb.dataset.url;
-  if (url) chrome.tabs.create({ url });
-});
+if (leadDetailBack) {
+  leadDetailBack.addEventListener('click', (e) => {
+    e.preventDefault();
+    showInboxList();
+  });
+}
+if (leadDetailOpenFb) {
+  leadDetailOpenFb.addEventListener('click', () => {
+    const url = leadDetailOpenFb.dataset.url;
+    if (url) chrome.tabs.create({ url });
+  });
+}
+if (leadDetailAiBtn) {
+  leadDetailAiBtn.addEventListener('click', () => {
+    // Placeholder: AI response generation will be implemented later
+  });
+}
 
 loadAndRender();
 

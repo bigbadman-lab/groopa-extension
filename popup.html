@@ -9,14 +9,13 @@
 <body>
   <div class="popup">
     <header class="header">
-      <h1 class="title">Groopa</h1>
+      <div class="header-left">
+        <h1 class="title">Groopa</h1>
+        <span id="header-status" class="header-status" aria-live="polite">Loading…</span>
+      </div>
       <button id="open-settings" class="btn-icon" title="Settings">&#9881;</button>
     </header>
-
-    <div class="status-line">
-      <span id="hero-status" class="hero-status">Loading…</span>
-      <span id="hero-detail" class="hero-detail"></span>
-    </div>
+    <p id="header-subline" class="header-subline" aria-live="polite"></p>
 
     <div class="kpi-row">
       <div class="kpi-card">
@@ -40,28 +39,28 @@
       </div>
     </section>
 
-    <div class="workspace">
-      <div class="inbox-column">
-        <h2 class="workspace-title">Inbox</h2>
-        <div id="detections-inbox-wrap" class="inbox-wrap">
-          <div id="recent-detections" class="placeholder-content">
-            <p class="placeholder-text">No detections yet.</p>
-          </div>
+    <section class="inbox-section">
+      <h2 class="inbox-heading">INBOX</h2>
+      <p class="inbox-subtitle">Manage your leads here</p>
+
+      <div id="inbox-list" class="inbox-list">
+        <div id="recent-detections" class="inbox-cards">
+          <p class="placeholder-text">No detections yet.</p>
         </div>
       </div>
-      <div class="detail-column">
-        <div id="detail-placeholder" class="detail-placeholder">
-          <p class="detail-placeholder-text">Select a lead from the list</p>
-        </div>
-        <div id="detection-detail" class="detection-detail" hidden>
-          <button type="button" id="detection-detail-back" class="btn-back">&#8592; Back</button>
-          <p class="detection-detail-group" id="detection-detail-group"></p>
-          <p class="detection-detail-text" id="detection-detail-text"></p>
-          <p class="detection-detail-keywords" id="detection-detail-keywords"></p>
-          <button type="button" id="detection-detail-open-fb" class="btn btn-primary">Open in Facebook</button>
+
+      <div id="lead-detail-view" class="lead-detail-view" hidden>
+        <a href="#" id="lead-detail-back" class="lead-detail-back">&#8592; Back to Inbox</a>
+        <p class="lead-detail-group" id="lead-detail-group"></p>
+        <p class="lead-detail-time" id="lead-detail-time"></p>
+        <div class="lead-detail-post" id="lead-detail-text"></div>
+        <p class="lead-detail-keywords" id="lead-detail-keywords"></p>
+        <div class="lead-detail-actions">
+          <button type="button" id="lead-detail-ai-btn" class="btn btn-cta">Generate AI Response</button>
+          <button type="button" id="lead-detail-open-fb" class="btn btn-secondary">Open in Facebook</button>
         </div>
       </div>
-    </div>
+    </section>
 
     <section class="collapsible-section">
       <button type="button" id="toggle-more" class="collapsible-toggle" aria-expanded="false">
