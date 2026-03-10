@@ -55,6 +55,9 @@ const openInboxBtn = document.getElementById('open-inbox-btn');
 const suggestedKeywordsWrapEl = document.getElementById('suggested-keywords-wrap');
 const suggestedKeywordsListEl = document.getElementById('suggested-keywords-list');
 const suggestedAddAllBtn = document.getElementById('suggested-add-all-btn');
+const telegramEnabledCheckbox = document.getElementById('telegram-enabled');
+const telegramStatusTextEl = document.getElementById('telegram-status-text');
+const telegramConnectBtn = document.getElementById('telegram-connect-btn');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -209,6 +212,9 @@ async function loadPage() {
   paidCheckbox.checked = settings.isPaidUser;
   soundCheckbox.checked = settings.soundEnabled;
   if (desktopAlertsCheckbox) desktopAlertsCheckbox.checked = settings.desktopAlertsEnabled !== false;
+  const telegram = settings.telegram;
+  if (telegramEnabledCheckbox) telegramEnabledCheckbox.checked = telegram && telegram.enabled === true;
+  if (telegramStatusTextEl) telegramStatusTextEl.textContent = getTelegramStatusLabel(telegram);
   keywordList = Array.isArray(settings.keywords) ? settings.keywords.slice() : [];
   detectedGroupsList = Array.isArray(settings.detectedGroups) ? settings.detectedGroups.slice() : [];
   trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
@@ -238,6 +244,27 @@ function updateAccountPanel(isPaidUser) {
   if (accountPlanEl) {
     accountPlanEl.textContent = isPaidUser ? 'Paid' : 'Free';
   }
+}
+
+/**
+ * Map telegram.status to user-facing status text. If connected and username exists, show "Connected as @username".
+ */
+function getTelegramStatusLabel(telegram) {
+  const prefix = 'Status: ';
+  if (!telegram || typeof telegram !== 'object') return prefix + 'Not connected';
+  const status = String(telegram.status || 'disconnected').toLowerCase();
+  const map = {
+    disconnected: 'Not connected',
+    pending: 'Connecting…',
+    connected: 'Connected',
+    error: 'Connection error',
+  };
+  const label = map[status] || 'Not connected';
+  if (status === 'connected' && telegram.username) {
+    const user = String(telegram.username).replace(/^@/, '');
+    return prefix + 'Connected as @' + user;
+  }
+  return prefix + label;
 }
 
 function renderMonitorStatus(settings) {
@@ -472,6 +499,25 @@ soundCheckbox.addEventListener('change', async () => {
 if (desktopAlertsCheckbox) {
   desktopAlertsCheckbox.addEventListener('change', async () => {
     await saveSettings({ desktopAlertsEnabled: desktopAlertsCheckbox.checked });
+  });
+}
+if (telegramEnabledCheckbox) {
+  telegramEnabledCheckbox.addEventListener('change', async () => {
+    if (typeof updateTelegramSettings === 'function') {
+      await updateTelegramSettings({ enabled: telegramEnabledCheckbox.checked });
+    }
+  });
+}
+if (telegramConnectBtn) {
+  telegramConnectBtn.addEventListener('click', () => {
+    console.log('[Groopa] Connect Telegram clicked (placeholder)');
+    if (telegramStatusTextEl) {
+      const prev = telegramStatusTextEl.textContent;
+      telegramStatusTextEl.textContent = 'Status: Connecting…';
+      setTimeout(() => {
+        telegramStatusTextEl.textContent = prev;
+      }, 1500);
+    }
   });
 }
 
