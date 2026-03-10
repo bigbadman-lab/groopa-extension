@@ -257,15 +257,15 @@ async function saveDetectedGroups(detectedGroups) {
 const UNKNOWN_GROUP_NAME = 'Unknown group';
 
 /**
- * Reserved non-group paths under /groups/ that should never be treated as real groups.
- * Examples: /groups/joins, /groups/feed.
- * @param {string} slug
+ * Reserved non-group path segments under /groups/ that must never be treated as real groups.
+ * Applies to all URL variants (e.g. .../groups/joins, .../groups/joins/, .../groups/joins/?ref=...).
+ * @param {string} slug - segment from path (e.g. "joins", "feed")
  * @returns {boolean}
  */
 function isReservedGroupSlug(slug) {
-  if (!slug) return false;
+  if (slug == null || String(slug).trim() === '') return false;
   const s = String(slug).trim().toLowerCase();
-  return s === 'joins' || s === 'feed';
+  return s === 'joins' || s === 'feed' || s === 'discover' || s === 'create';
 }
 
 /**
@@ -433,9 +433,13 @@ async function upsertDetectedGroup(group) {
   if (!group || (group.id == null && !group.url)) return;
   const now = new Date().toISOString();
   const rawUrl = group.url != null ? group.url : '';
+  const segmentFromUrl = (rawUrl.match(/\/groups\/([^/]+)/i) || [])[1] || '';
+  if (isReservedGroupSlug(segmentFromUrl)) return;
   const normalizedUrl = normalizeFacebookGroupUrl(rawUrl);
+  if (!normalizedUrl) return;
   const slug = (group.slug != null && String(group.slug).trim() !== '') ? String(group.slug).trim() : getSlugFromGroupUrl(rawUrl || normalizedUrl);
   const id = group.id != null ? String(group.id).trim() : slug;
+  if (isReservedGroupSlug(slug) || isReservedGroupSlug(id)) return;
   if (!id && !slug) return;
   const normalizedKey = getNormalizedKey(id, slug, rawUrl || normalizedUrl);
   if (!normalizedKey) return;
@@ -486,13 +490,15 @@ async function upsertDetectedGroup(group) {
 
 /**
  * Remove reserved non-group entries (e.g. /groups/joins, /groups/feed) from detectedGroups.
- * Called from background flows so bad entries are cleaned up on the next scan.
+ * Extracts the path segment from each URL so all variants (joins, joins/, m.facebook.com/...) are caught.
+ * Called after scans and on extension load so bad entries are removed immediately.
  */
 async function cleanupReservedDetectedGroups() {
   const list = await getDetectedGroups();
   const filtered = list.filter((g) => {
-    const slug = getSlugFromGroupUrl(g.url || '');
-    return !isReservedGroupSlug(slug);
+    const url = g.url || '';
+    const segment = (url.match(/\/groups\/([^/]+)/i) || [])[1] || '';
+    return !isReservedGroupSlug(segment);
   });
   if (filtered.length !== list.length) {
     await saveDetectedGroups(filtered);

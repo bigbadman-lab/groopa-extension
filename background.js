@@ -217,12 +217,14 @@ chrome.runtime.onInstalled.addListener(() => {
   migrateOperationalKeysFromSyncToLocal().then(() => {
     console.log('[Groopa] Migration: operational data now in local storage');
   });
+  cleanupReservedDetectedGroups();
   scheduleScanHeartbeat();
   updateUnreadBadge();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[Groopa] Extension started');
+  cleanupReservedDetectedGroups();
   scheduleScanHeartbeat();
   updateUnreadBadge();
 });

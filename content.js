@@ -109,11 +109,14 @@
   function cleanGroupNameForJoins(str) {
     if (!str || typeof str !== 'string') return '';
     let s = str.trim().replace(/\s+/g, ' ');
+    // Remove "Last active X <unit> ago" (e.g. "Last active 12 weeks ago", "· Last active 2 days ago")
+    s = s.replace(/\s*[·\-–]?\s*Last\s+active\s+\d+\s+(?:minutes?|hours?|days?|weeks?|months?|years?)\s+ago\s*/gi, '');
     // Remove common suffixes: "· 5.2K members", "· 12 posts this week", "Public group", "Join", "Joined", "Leave"
     s = s.replace(/\s*·\s*[\d.,KkMm]+?\s*(members?|posts?\s*(this\s*week|today)?)\s*$/gi, '');
     s = s.replace(/\s*Public\s+group\s*$/gi, '');
     s = s.replace(/\s*(Join|Joined|Leave|Leave group)\s*$/gi, '');
     s = s.replace(/\s*\d+\s*(members?|posts?)\s*$/gi, '');
+    s = s.replace(/\s*[·\-–]+\s*$/, '').replace(/^\s*[·\-–]+\s*/, '');
     return s.trim();
   }
 
