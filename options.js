@@ -9,6 +9,8 @@ const keywordsEmptyEl = document.getElementById('keywords-empty');
 const loadDemoBtn = document.getElementById('load-demo-btn');
 const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
+const runFeedExperimentBtn = document.getElementById('run-feed-experiment-btn');
+const feedExperimentMessageEl = document.getElementById('feed-experiment-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 const inboxListEl = document.getElementById('inbox-list');
 const inboxLayoutEl = document.getElementById('inbox-layout');
@@ -760,6 +762,26 @@ if (scanGroupsBtn) {
       scanGroupsBtn.disabled = false;
       setScanGroupsStatus('error');
     }
+  });
+}
+
+if (runFeedExperimentBtn && feedExperimentMessageEl) {
+  runFeedExperimentBtn.addEventListener('click', () => {
+    feedExperimentMessageEl.textContent = 'Running… Open /groups/feed if prompted, then check console and Activity log.';
+    runFeedExperimentBtn.disabled = true;
+    chrome.runtime.sendMessage({ type: 'RUN_GROUP_FEED_EXPERIMENT' }, (response) => {
+      runFeedExperimentBtn.disabled = false;
+      if (chrome.runtime.lastError) {
+        feedExperimentMessageEl.textContent = 'Error: ' + (chrome.runtime.lastError.message || 'Unknown');
+        return;
+      }
+      if (response && response.ok) {
+        const n = (response.candidates && response.candidates.length) || 0;
+        feedExperimentMessageEl.textContent = 'Done. ' + n + ' candidate(s). Check DevTools console and Activity log for details.';
+      } else {
+        feedExperimentMessageEl.textContent = (response && response.error) || 'Experiment failed.';
+      }
+    });
   });
 }
 

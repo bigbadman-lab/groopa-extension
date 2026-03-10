@@ -646,6 +646,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'RUN_GROUP_FEED_EXPERIMENT') {
+    (async () => {
+      try {
+        const feedUrl = 'https://www.facebook.com/groups/feed/';
+        let tabId = null;
+        const tabs = await chrome.tabs.query({ url: '*://*.facebook.com/groups/feed*' });
+        if (tabs && tabs.length > 0) {
+          tabId = tabs[0].id;
+          await chrome.tabs.update(tabId, { active: true });
+        } else {
+          const tab = await chrome.tabs.create({ url: feedUrl, active: true });
+          tabId = tab && tab.id != null ? tab.id : null;
+        }
+        if (!tabId) {
+          sendResponse({ ok: false, error: 'Could not open /groups/feed tab' });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 4000));
+        const response = await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tabId, { type: 'RUN_GROUP_FEED_EXPERIMENT' }, (res) => {
+            if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+            else resolve(res);
+          });
+        });
+        const candidates = (response && response.candidates) || [];
+        console.log('[Groopa] Group feed experiment — candidate count:', candidates.length, 'candidates:', candidates);
+        await addActivityLogEntry({
+          timestamp: new Date().toISOString(),
+          kind: 'group_feed_experiment',
+          candidateCount: candidates.length,
+          candidates: candidates.slice(0, 20),
+        });
+        sendResponse({ ok: response && response.ok, candidates: candidates, error: response && response.error });
+      } catch (err) {
+        console.error('[Groopa] RUN_GROUP_FEED_EXPERIMENT error', err);
+        sendResponse({ ok: false, error: err && err.message ? err.message : 'Experiment failed' });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'INBOX_OPENED') {
     (async () => {
       try {

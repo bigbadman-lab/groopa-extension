@@ -193,6 +193,77 @@
     });
   }
 
+  // ----- Experimental: /groups/feed per-post group extraction (debug only) -----
+
+  function isReservedGroupSegment(segment) {
+    if (!segment) return true;
+    const s = String(segment).toLowerCase();
+    return s === 'feed' || s === 'joins' || s === 'discover' || s === 'create';
+  }
+
+  /**
+   * Best-effort extract group segment and canonical URL from an anchor href.
+   * Returns null if reserved or invalid.
+   */
+  function parseGroupLink(href) {
+    if (!href || typeof href !== 'string') return null;
+    try {
+      const u = new URL(href.trim(), window.location.href);
+      if (u.hostname.indexOf('facebook.com') === -1) return null;
+      const match = u.pathname.match(/\/groups\/([^/]+)/i);
+      if (!match || !match[1]) return null;
+      const segment = match[1];
+      if (isReservedGroupSegment(segment)) return null;
+      const canonicalUrl = 'https://www.facebook.com/groups/' + segment;
+      const key = /^[0-9]+$/.test(segment) ? 'id:' + segment : 'url:' + canonicalUrl.toLowerCase();
+      return { segment: segment, url: canonicalUrl, key: key };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Experimental: scan visible posts on /groups/feed and try to extract per-post source group.
+   * Results are for inspection only; do not feed into production detection pipeline.
+   */
+  function runGroupFeedExperiment() {
+    const pathname = window.location.pathname || '';
+    if (pathname.indexOf('/groups/feed') === -1) return [];
+    const articles = document.querySelectorAll('[role="article"]');
+    const results = [];
+    const previewLen = 120;
+
+    for (let i = 0; i < articles.length; i++) {
+      const article = articles[i];
+      const text = (article.innerText || article.textContent || '').trim().replace(/\s+/g, ' ').slice(0, previewLen);
+      const links = article.querySelectorAll('a[href*="/groups/"]');
+      let extractedGroupName = '';
+      let extractedGroupUrl = '';
+      let extractedGroupKey = '';
+
+      for (let j = 0; j < links.length; j++) {
+        const a = links[j];
+        const parsed = parseGroupLink(a.getAttribute('href') || '');
+        if (!parsed) continue;
+        extractedGroupUrl = parsed.url;
+        extractedGroupKey = parsed.key;
+        const name = (a.textContent || '').trim();
+        if (name && name.length < 200) extractedGroupName = name;
+        break;
+      }
+
+      results.push({
+        articleIndex: i,
+        textPreview: text || '',
+        extractedGroupName: extractedGroupName,
+        extractedGroupUrl: extractedGroupUrl,
+        extractedGroupKey: extractedGroupKey,
+      });
+    }
+
+    return results;
+  }
+
   chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     if (!isExtensionContextValid()) return false;
     if (message && message.type === 'RUN_GROUP_MEMBERSHIP_SCAN') {
@@ -203,6 +274,17 @@
         .catch(function (err) {
           sendResponse({ ok: false, error: err && err.message ? err.message : 'Scan failed' });
         });
+      return true;
+    }
+    if (message && message.type === 'RUN_GROUP_FEED_EXPERIMENT') {
+      const pathname = (window.location.pathname || '').toLowerCase();
+      if (pathname.indexOf('/groups/feed') === -1) {
+        sendResponse({ ok: false, error: 'Not on /groups/feed. Open https://www.facebook.com/groups/feed first.' });
+        return true;
+      }
+      const candidates = runGroupFeedExperiment();
+      console.log(PREFIX, 'Group feed experiment — candidates:', candidates);
+      sendResponse({ ok: true, candidates: candidates });
       return true;
     }
     return false;
