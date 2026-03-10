@@ -181,9 +181,31 @@ async function saveDetections(detections) {
 const MAX_DETECTIONS_STORED = 100;
 
 /**
- * Append new detections, dedupe by fingerprint, keep list under MAX_DETECTIONS_STORED.
- * Dedupes against: (1) already stored detections, (2) duplicates within the same incoming batch.
- * Only detections with a non-empty fingerprint are considered; duplicates are not saved, rendered, or counted.
+ * Merge incoming detection into existing, preferring stronger metadata (non-empty groupName, postUrl, etc.).
+ * Does not change fingerprint, createdAt, status, or id-like fields; only improves display/metadata.
+ */
+function mergeDetectionMetadata(existing, incoming) {
+  const out = { ...existing };
+  if (incoming.groupName && String(incoming.groupName).trim() && (!existing.groupName || !String(existing.groupName).trim())) {
+    out.groupName = String(incoming.groupName).trim();
+  } else if (incoming.groupName && String(incoming.groupName).trim() && existing.groupName && String(existing.groupName).trim().length < String(incoming.groupName).trim().length) {
+    out.groupName = String(incoming.groupName).trim();
+  }
+  if (incoming.postUrl && String(incoming.postUrl).trim() && (!existing.postUrl || !String(existing.postUrl).trim())) {
+    out.postUrl = String(incoming.postUrl).trim();
+  }
+  if (incoming.pageUrl && String(incoming.pageUrl).trim() && (!existing.pageUrl || !String(existing.pageUrl).trim())) {
+    out.pageUrl = String(incoming.pageUrl).trim();
+  }
+  if (incoming.groupIdentifier && String(incoming.groupIdentifier).trim() && (!existing.groupIdentifier || !String(existing.groupIdentifier).trim())) {
+    out.groupIdentifier = String(incoming.groupIdentifier).trim();
+  }
+  return out;
+}
+
+/**
+ * Append new detections, dedupe by postUrl (primary) and fingerprint, merge metadata when same lead seen again.
+ * Same post permalink never creates a second lead; conflicting group attribution is merged into one record.
  * @param {object[]} newDetections - each must have .fingerprint (from buildDetectionFingerprint)
  * @returns {Promise<object[]>} the detections that were actually added (use this for badge + notifications)
  */
@@ -195,18 +217,45 @@ async function appendDetectionsIfNew(newDetections) {
       return d && d.fingerprint ? String(d.fingerprint) : null;
     }).filter(Boolean)
   );
+  const postUrlToIndex = {};
+  for (let i = 0; i < existing.length; i++) {
+    const d = existing[i];
+    if (d && d.postUrl) {
+      const norm = normalizePostUrl(d.postUrl);
+      if (norm) postUrlToIndex[norm.toLowerCase()] = i;
+    }
+  }
   const toAdd = [];
+  let list = existing.slice();
   for (let i = 0; i < newDetections.length; i++) {
     const d = newDetections[i];
     if (!d || typeof d !== 'object') continue;
+    const postUrlNorm = d.postUrl ? normalizePostUrl(d.postUrl).toLowerCase() : '';
+    if (postUrlNorm && postUrlToIndex[postUrlNorm] !== undefined) {
+      const idx = postUrlToIndex[postUrlNorm];
+      const existingLead = list[idx];
+      if (existingLead && (existingLead.groupName !== d.groupName || existingLead.groupIdentifier !== d.groupIdentifier)) {
+        if (typeof console !== 'undefined' && console.log) {
+          console.log('[Groopa] Dedupe: same postUrl, different group attribution — merging into single lead');
+        }
+      }
+      list[idx] = mergeDetectionMetadata(list[idx], d);
+      continue;
+    }
     const key = d.fingerprint != null ? String(d.fingerprint).trim() : '';
-    if (!key || seen.has(key)) continue;
+    if (!key) continue;
+    if (seen.has(key)) {
+      const idx = list.findIndex(function (x) { return x && x.fingerprint === key; });
+      if (idx >= 0) list[idx] = mergeDetectionMetadata(list[idx], d);
+      continue;
+    }
     seen.add(key);
     toAdd.push(d);
+    list.push(d);
   }
-  if (toAdd.length === 0) return [];
-  const combined = [...existing, ...toAdd];
-  const trimmed = combined.slice(-MAX_DETECTIONS_STORED);
+  const anyMerged = list.length !== existing.length || list.some(function (d, i) { return d !== existing[i]; });
+  if (toAdd.length === 0 && !anyMerged) return [];
+  const trimmed = list.slice(-MAX_DETECTIONS_STORED);
   await saveDetections(trimmed);
   return toAdd;
 }
@@ -357,32 +406,55 @@ function normalizeTextForFingerprint(text) {
 const FINGERPRINT_PREVIEW_LEN = 200;
 
 /**
- * One deterministic fingerprint per lead. Used for all detections so duplicates are never stored.
- * Uses only stable fields: group identity, normalized post text (first 200 chars), normalized+sorted keywords.
- * Does NOT use: createdAt, source, timestamps, attempt labels, array index.
+ * Normalize a post/permalink URL for stable identity (strip hash, one canonical form).
+ * @param {string} url
+ * @returns {string}
+ */
+function normalizePostUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url.trim());
+    u.hash = '';
+    return u.href;
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * One deterministic fingerprint per lead. When postUrl is present, uses it as the primary identity
+ * so the same post is never stored twice with different group attribution.
  * @param {object} opts
+ * @param {string} [opts.postUrl] - post permalink; when present used as identity anchor (prevents group-name duplicates)
  * @param {string} [opts.groupId] - stable group id if known
- * @param {string} [opts.groupSlug] - slug from URL (e.g. getSlugFromGroupUrl(pageUrl))
+ * @param {string} [opts.groupSlug] - slug from URL
  * @param {string} [opts.pageUrl] - fallback to derive group from URL
- * @param {string} opts.textPreview - raw post text (cleaned for fingerprint only; keep raw for display)
- * @param {string[]} opts.matchedKeywords - matched keywords (will be normalized and sorted)
+ * @param {string} opts.textPreview - raw post text
+ * @param {string[]} opts.matchedKeywords - matched keywords
  * @returns {string}
  */
 function buildDetectionFingerprint(opts) {
   if (!opts || typeof opts !== 'object') return '';
+  const postUrl = opts.postUrl != null ? String(opts.postUrl).trim() : '';
   const groupId = opts.groupId != null ? String(opts.groupId).trim() : '';
   const groupSlug = opts.groupSlug != null ? String(opts.groupSlug).trim() : '';
   const pageUrl = opts.pageUrl != null ? opts.pageUrl : '';
   const textPreview = opts.textPreview != null ? String(opts.textPreview) : '';
   const matchedKeywords = Array.isArray(opts.matchedKeywords) ? opts.matchedKeywords : [];
 
-  let groupKey = '';
-  if (groupId) groupKey = groupId.toLowerCase();
-  else if (groupSlug) groupKey = groupSlug.toLowerCase();
-  else {
-    const slug = getSlugFromGroupUrl(pageUrl);
-    if (slug) groupKey = slug.toLowerCase();
-    else groupKey = (normalizeFacebookGroupUrl(pageUrl) || '').toLowerCase();
+  let identityKey = '';
+  if (postUrl) {
+    identityKey = normalizePostUrl(postUrl).toLowerCase();
+    if (!identityKey) identityKey = '';
+  }
+  if (!identityKey) {
+    if (groupId) identityKey = groupId.toLowerCase();
+    else if (groupSlug) identityKey = groupSlug.toLowerCase();
+    else {
+      const slug = getSlugFromGroupUrl(pageUrl);
+      if (slug) identityKey = slug.toLowerCase();
+      else identityKey = (normalizeFacebookGroupUrl(pageUrl) || '').toLowerCase();
+    }
   }
 
   var cleaned = cleanPostTextForFingerprint(textPreview);
@@ -395,7 +467,7 @@ function buildDetectionFingerprint(opts) {
     .sort()
     .join(',');
 
-  return groupKey + '|' + preview + '|' + kws;
+  return identityKey + '|' + preview + '|' + kws;
 }
 
 /**

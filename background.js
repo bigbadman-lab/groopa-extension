@@ -504,6 +504,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
           const fingerprint = buildDetectionFingerprint({
+            postUrl: postUrl,
             groupId: groupIdentifier,
             groupSlug: groupSlugFromUrl,
             pageUrl: pageUrl,
