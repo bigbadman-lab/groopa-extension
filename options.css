@@ -165,7 +165,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 24px 32px;
+  gap: 20px 28px;
   margin-bottom: 24px;
   padding-bottom: 24px;
   border-bottom: 1px solid #eee;
@@ -180,23 +180,25 @@ body {
 }
 
 .monitoring-hero-stats {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  max-width: 300px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
 }
 
 .monitoring-hero-stats .summary-bento {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   margin-bottom: 0;
+  width: 100%;
 }
 
 .monitoring-hero-stats .summary-card {
-  padding: 10px 14px;
-  min-width: 120px;
+  padding: 10px 12px;
+  min-width: 0;
 }
 
 .monitoring-hero-stats .summary-card-count {
@@ -205,6 +207,7 @@ body {
 
 .monitoring-hero-stats .summary-actions {
   margin-bottom: 0;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -215,11 +218,10 @@ body {
   .monitoring-hero-stats {
     align-items: stretch;
     width: 100%;
+    max-width: none;
   }
 
   .monitoring-hero-stats .summary-bento {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
   }
 
