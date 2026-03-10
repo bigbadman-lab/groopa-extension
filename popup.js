@@ -173,10 +173,11 @@ async function loadAndRender() {
       .join('');
   }
 
-  // Recent leads (inbox preview): show up to 5, full list in detail when clicked
+  // Recent leads (inbox preview): newest first, show up to 5
   const RECENT_LEADS_PREVIEW_MAX = 5;
-  const previewList = detectionsList.slice(0, RECENT_LEADS_PREVIEW_MAX);
-  lastDetectionsList = detectionsList;
+  const sortedDetections = (detectionsList || []).slice().sort((a, b) => (new Date(b.createdAt || 0)).getTime() - (new Date(a.createdAt || 0)).getTime());
+  const previewList = sortedDetections.slice(0, RECENT_LEADS_PREVIEW_MAX);
+  lastDetectionsList = sortedDetections;
   if (detectionsList.length === 0) {
     recentDetectionsEl.className = 'placeholder-content inbox-cards';
     recentDetectionsEl.innerHTML = '<p class="placeholder-text">No leads yet. Configure keywords and groups in Settings.</p>';

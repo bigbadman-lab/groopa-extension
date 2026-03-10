@@ -530,12 +530,10 @@ function renderInbox() {
     selectedInboxDetection = null;
     if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
   }
-  // Auto-select newest lead when none selected (by createdAt, newest first)
+  // Auto-select newest lead when none selected (list is already newest-first)
   if (list.length > 0 && !selectedInboxDetection) {
-    const byNewest = list.slice().sort((a, b) => (new Date(b.createdAt || 0)).getTime() - (new Date(a.createdAt || 0)).getTime());
-    const newest = byNewest[0];
-    selectedInboxDetection = newest;
-    showInboxDetailContent(newest);
+    selectedInboxDetection = list[0];
+    showInboxDetailContent(list[0]);
   }
   updateInboxRowSelection();
 }
@@ -709,10 +707,12 @@ if (openInboxBtn) {
 
 /**
  * Reload detections from storage and re-render the inbox. Used on initial load and when storage changes.
+ * Sorts newest first (by createdAt) so the inbox behaves like a real inbox.
  */
 async function refreshInboxFromStorage() {
   const list = await getDetections();
-  detectionsList = Array.isArray(list) ? list.slice() : [];
+  const raw = Array.isArray(list) ? list.slice() : [];
+  detectionsList = raw.sort((a, b) => (new Date(b.createdAt || 0)).getTime() - (new Date(a.createdAt || 0)).getTime());
   renderInbox();
   updateSummaryCounts();
 }
