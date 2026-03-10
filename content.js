@@ -572,6 +572,49 @@
     return raw.trim().replace(/\s+/g, ' ');
   }
 
+  /**
+   * Try to find a post permalink inside an article (timestamp/post-detail link).
+   * Prefers links with /posts/, /permalink/, or story_fbid; otherwise first facebook.com link that looks like a post.
+   * @param {Element} article
+   * @returns {string} absolute URL or ''
+   */
+  function extractPostUrlFromArticle(article) {
+    if (!article || !article.querySelectorAll) return '';
+    const anchors = article.querySelectorAll('a[href]');
+    let best = '';
+    let fallback = '';
+    for (let i = 0; i < anchors.length; i++) {
+      const href = (anchors[i].getAttribute('href') || '').trim();
+      if (!href || href === '#') continue;
+      let abs = '';
+      try {
+        abs = new URL(href, window.location.href).href;
+      } catch (_) {
+        continue;
+      }
+      if (abs.indexOf('facebook.com') === -1) continue;
+      const lower = abs.toLowerCase();
+      if (lower.indexOf('/posts/') !== -1 || lower.indexOf('/permalink') !== -1 || lower.indexOf('story_fbid') !== -1) {
+        best = abs;
+        break;
+      }
+      if (!fallback && lower.indexOf('/groups/') !== -1 && (lower.indexOf('/posts/') !== -1 || lower.split('/groups/')[1].split('/').filter(Boolean).length > 1)) {
+        fallback = abs;
+      } else if (!fallback && (lower.indexOf('story_fbid') !== -1 || lower.indexOf('pc_id') !== -1)) {
+        fallback = abs;
+      }
+    }
+    const chosen = best || fallback;
+    if (!chosen) return '';
+    try {
+      const u = new URL(chosen);
+      u.hash = '';
+      return u.href;
+    } catch (_) {
+      return chosen;
+    }
+  }
+
   function countNodesWithText(nodes) {
     var count = 0;
     for (var j = 0; j < nodes.length; j++) {
@@ -622,8 +665,12 @@
       if (!key || seen.has(key)) continue;
       seen.add(key);
 
+      const postUrl = extractPostUrlFromArticle(node);
+      if (postUrl) console.log(PREFIX, 'article', i + 1, '— postUrl:', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
+
       candidates.push({
         textPreview: cleaned.length > MAX_PREVIEW_LEN ? cleaned.slice(0, MAX_PREVIEW_LEN) + '…' : cleaned,
+        postUrl: postUrl || undefined,
       });
     }
     return { candidates, nodeCount, selector };

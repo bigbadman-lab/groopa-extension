@@ -228,7 +228,7 @@ function showLeadDetail(detection) {
   leadDetailTime.textContent = 'Detected ' + formatDate(detection.createdAt);
   leadDetailText.textContent = text || '—';
   leadDetailKeywords.textContent = 'Matched: ' + keywordLabel;
-  leadDetailOpenFb.dataset.url = detection.pageUrl || '';
+  leadDetailOpenFb.dataset.url = detection.postUrl || detection.pageUrl || '';
   inboxListEl.hidden = true;
   leadDetailViewEl.hidden = false;
 }

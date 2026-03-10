@@ -552,8 +552,9 @@ function showInboxDetailContent(detection) {
   if (inboxDetailText) inboxDetailText.textContent = text || '—';
   if (inboxReplyTextEl) inboxReplyTextEl.textContent = 'Reply will appear here after you click Generate AI Reply.';
   if (inboxOpenPostLink) {
-    inboxOpenPostLink.href = detection.pageUrl || '#';
-    inboxOpenPostLink.style.display = detection.pageUrl ? 'inline-block' : 'none';
+    const openUrl = detection.postUrl || detection.pageUrl || '#';
+    inboxOpenPostLink.href = openUrl;
+    inboxOpenPostLink.style.display = openUrl !== '#' ? 'inline-block' : 'none';
   }
   if (inboxDetailContentEl) inboxDetailContentEl.hidden = false;
 }
@@ -596,7 +597,7 @@ if (inboxCopyReplyBtn) {
 
 if (inboxOpenPostLink) {
   inboxOpenPostLink.addEventListener('click', (e) => {
-    if (!selectedInboxDetection || !selectedInboxDetection.pageUrl) e.preventDefault();
+    if (!selectedInboxDetection || !(selectedInboxDetection.postUrl || selectedInboxDetection.pageUrl)) e.preventDefault();
   });
 }
 

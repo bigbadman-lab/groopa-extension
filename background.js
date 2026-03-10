@@ -290,7 +290,7 @@ async function handleNewLeadAlert(added) {
       ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
       : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
   const notificationId = 'groopa-lead-' + Date.now();
-  await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
+  await setNotificationContext({ notificationId, pageUrl: d.postUrl || d.pageUrl || '' });
   try {
     const iconUrl = chrome.runtime.getURL('icons/icon128.png');
     await chrome.notifications.create(notificationId, {
@@ -456,6 +456,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const matchedKeywords = getMatchingKeywords(normalized, keywords);
           if (matchedKeywords.length === 0) continue;
 
+          const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
           const fingerprint = buildDetectionFingerprint({
             groupId: groupIdentifier,
             groupSlug: groupSlugFromUrl,
@@ -469,6 +470,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             groupName,
             groupIdentifier,
             pageUrl,
+            postUrl: postUrl,
             createdAt: now,
             source: 'page_scan',
             type: 'keyword_match',
