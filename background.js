@@ -80,6 +80,8 @@ function scheduleScanHeartbeat() {
 
 /**
  * Ensure the Groopa monitor window exists; create if missing. Clears stale IDs.
+ * When we create a new window with url: 'about:blank', Chrome creates exactly one tab;
+ * we store that tab's ID so we reuse it (single monitor tab, no extra blank tab).
  */
 async function ensureMonitorWindow() {
   const state = await getMonitoringState();
@@ -91,7 +93,7 @@ async function ensureMonitorWindow() {
       await updateMonitoringState({ monitorWindowId: null, monitorTabId: null });
     }
   }
-  // Compact popup-style window for background monitoring
+  // One window, one tab: create window with one blank tab and adopt that tab as the monitor tab
   const win = await chrome.windows.create({
     url: 'about:blank',
     type: 'popup',
@@ -101,15 +103,20 @@ async function ensureMonitorWindow() {
     top: 20,
     focused: false,
   });
-  if (win && win.id != null) {
+  if (!win || win.id == null) throw new Error('Could not create monitor window');
+  const tabs = await chrome.tabs.query({ windowId: win.id });
+  if (tabs && tabs.length > 0) {
+    await updateMonitoringState({ monitorWindowId: win.id, monitorTabId: tabs[0].id });
+  } else {
     await updateMonitoringState({ monitorWindowId: win.id });
-    return { windowId: win.id };
   }
-  throw new Error('Could not create monitor window');
+  return { windowId: win.id };
 }
 
 /**
- * Ensure the scan tab exists in the given window; create if missing. Clears stale tab ID.
+ * Ensure we have exactly one scan tab in the given monitor window. Reuse existing tab if valid;
+ * otherwise adopt the window's first tab (if any) or create one. Never create a second tab
+ * when the window already has a tab.
  */
 async function ensureMonitorTab(windowId) {
   const state = await getMonitoringState();
@@ -119,6 +126,11 @@ async function ensureMonitorTab(windowId) {
       if (tab.windowId === windowId) return { tabId: tab.id };
     } catch (_) {}
     await updateMonitoringState({ monitorTabId: null });
+  }
+  const existingTabs = await chrome.tabs.query({ windowId });
+  if (existingTabs && existingTabs.length > 0) {
+    await updateMonitoringState({ monitorTabId: existingTabs[0].id });
+    return { tabId: existingTabs[0].id };
   }
   const tab = await chrome.tabs.create({ windowId, url: 'about:blank' });
   if (tab && tab.id != null) {
