@@ -576,6 +576,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
+        // Also clean any previously stored reserved non-group entries.
+        await cleanupReservedDetectedGroups();
         membershipScanInProgress = false;
         chrome.runtime.sendMessage({
           type: 'GROUP_MEMBERSHIP_SCAN_COMPLETED',

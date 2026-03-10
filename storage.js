@@ -257,6 +257,18 @@ async function saveDetectedGroups(detectedGroups) {
 const UNKNOWN_GROUP_NAME = 'Unknown group';
 
 /**
+ * Reserved non-group paths under /groups/ that should never be treated as real groups.
+ * Examples: /groups/joins, /groups/feed.
+ * @param {string} slug
+ * @returns {boolean}
+ */
+function isReservedGroupSlug(slug) {
+  if (!slug) return false;
+  const s = String(slug).trim().toLowerCase();
+  return s === 'joins' || s === 'feed';
+}
+
+/**
  * Normalize a Facebook group URL to a canonical form (no query, no trailing slash).
  * @param {string} url
  * @returns {string}
@@ -270,6 +282,7 @@ function normalizeFacebookGroupUrl(url) {
     const match = path.match(/\/groups\/([^/]+)/i);
     if (!match) return url;
     const segment = match[1];
+    if (isReservedGroupSlug(segment)) return '';
     return 'https://www.facebook.com/groups/' + segment;
   } catch (_) {
     return url;
@@ -286,7 +299,8 @@ function getSlugFromGroupUrl(url) {
   try {
     const u = new URL(url.trim());
     const match = u.pathname.match(/\/groups\/([^/]+)/i);
-    return match ? match[1] : '';
+    const slug = match ? match[1] : '';
+    return isReservedGroupSlug(slug) ? '' : slug;
   } catch (_) {
     return '';
   }
@@ -468,6 +482,21 @@ async function upsertDetectedGroup(group) {
     });
   }
   await saveDetectedGroups(list);
+}
+
+/**
+ * Remove reserved non-group entries (e.g. /groups/joins, /groups/feed) from detectedGroups.
+ * Called from background flows so bad entries are cleaned up on the next scan.
+ */
+async function cleanupReservedDetectedGroups() {
+  const list = await getDetectedGroups();
+  const filtered = list.filter((g) => {
+    const slug = getSlugFromGroupUrl(g.url || '');
+    return !isReservedGroupSlug(slug);
+  });
+  if (filtered.length !== list.length) {
+    await saveDetectedGroups(filtered);
+  }
 }
 
 /**
