@@ -271,14 +271,60 @@ async function updateUnreadBadge() {
 
 const OPEN_INBOX_ON_NEXT_LOAD_KEY = 'groopaOpenInboxOnNextLoad';
 
+const OFFSCREEN_PATH = 'offscreen.html';
+const LEAD_SOUND_COOLDOWN_MS = 10000;
+let lastLeadSoundAt = 0;
+let creatingOffscreen = null;
+
 /**
- * Central handler for new lead alerts: badge update and browser notification.
+ * Ensure the offscreen document exists for audio playback (MV3 service workers cannot play audio).
+ */
+async function ensureOffscreenAudioDocument() {
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
+  const existing = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl],
+  });
+  if (existing.length > 0) return;
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+    return;
+  }
+  creatingOffscreen = chrome.offscreen.createDocument({
+    url: OFFSCREEN_PATH,
+    reasons: ['AUDIO_PLAYBACK'],
+    justification: 'Play notification sound when a new lead is detected.',
+  });
+  await creatingOffscreen;
+  creatingOffscreen = null;
+}
+
+/**
+ * Play the new-lead sound via the offscreen document if sound is enabled and cooldown has passed.
+ */
+async function playNewLeadSound() {
+  const settings = await getSettings();
+  if (!settings.soundEnabled) return;
+  const now = Date.now();
+  if (now - lastLeadSoundAt < LEAD_SOUND_COOLDOWN_MS) return;
+  try {
+    await ensureOffscreenAudioDocument();
+    chrome.runtime.sendMessage({ type: 'PLAY_LEAD_SOUND' });
+    lastLeadSoundAt = now;
+  } catch (e) {
+    console.warn('[Groopa] Lead sound playback failed', e);
+  }
+}
+
+/**
+ * Central handler for new lead alerts: badge update, browser notification, and optional sound.
  * Call only after leads have been confirmed new and stored (e.g. from appendDetectionsIfNew).
  * @param {object[]} added - detections that were actually added (truly new)
  */
 async function handleNewLeadAlert(added) {
   if (!Array.isArray(added) || added.length === 0) return;
   await updateUnreadBadge();
+  playNewLeadSound();
   const settings = await getSettings();
   if (!settings.desktopAlertsEnabled) return;
   const d = added[0];
