@@ -91,9 +91,14 @@ async function ensureMonitorWindow() {
       await updateMonitoringState({ monitorWindowId: null, monitorTabId: null });
     }
   }
+  // Compact popup-style window for background monitoring
   const win = await chrome.windows.create({
     url: 'about:blank',
-    type: 'normal',
+    type: 'popup',
+    width: 420,
+    height: 700,
+    left: 20,
+    top: 20,
     focused: false,
   });
   if (win && win.id != null) {
@@ -640,7 +645,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const { windowId } = await ensureMonitorWindow();
-        await chrome.windows.update(windowId, { focused: true });
+        await chrome.windows.update(windowId, {
+          width: 420,
+          height: 700,
+          left: 20,
+          top: 20,
+          focused: true,
+        });
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[Groopa] OPEN_MONITOR_WINDOW error', err);
