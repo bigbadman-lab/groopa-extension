@@ -479,7 +479,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const MAX_CANDIDATES = 10;
         const raw = message.candidates || [];
         const list = Array.isArray(raw) ? raw.slice(0, MAX_CANDIDATES) : [];
-        const pageUrl = message.url != null ? message.url : (sender.tab && sender.tab.url ? sender.tab.url : '');
+        const sourceContext = message.sourceContext && typeof message.sourceContext === 'object' ? message.sourceContext : null;
+        const pageUrl = (sourceContext && sourceContext.pageUrl) || (message.url != null ? message.url : (sender.tab && sender.tab.url ? sender.tab.url : ''));
+        const groupName = (sourceContext && sourceContext.isGroupPage && sourceContext.groupName) ? String(sourceContext.groupName).trim() : '';
+        const groupIdentifier = (sourceContext && sourceContext.isGroupPage && sourceContext.groupIdentifier) ? String(sourceContext.groupIdentifier).trim() : '';
+        if (list.length > 0 && sourceContext) {
+          const firstPost = list[0] && list[0].postUrl ? String(list[0].postUrl).slice(0, 50) + '…' : '';
+          console.log('[Groopa] Candidates batch: source pageUrl=' + (pageUrl || '').slice(0, 70) + ' groupIdentifier=' + (groupIdentifier || '') + ' groupName=' + (groupName || '').slice(0, 35) + ' count=' + list.length + (firstPost ? ' firstPostUrl=' + firstPost : ''));
+        } else if (list.length > 0 && !sourceContext) {
+          console.warn('[Groopa] Candidates batch missing sourceContext; using page URL only for attribution. pageUrl=' + (pageUrl || '').slice(0, 70));
+        }
 
         if (list.length > 0) {
           await savePagePostCandidates(list);
@@ -492,17 +501,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         const settings = await getSettings();
-        const ctx = await getLastFacebookContext();
         const trackedGroups = settings.trackedGroups || [];
+        const ctxForTrackedCheck = sourceContext ? {
+          isGroupPage: !!sourceContext.isGroupPage,
+          groupIdentifier: groupIdentifier || null,
+          groupName: groupName || null,
+          url: pageUrl,
+        } : await getLastFacebookContext();
 
-        if (!isCurrentGroupTracked(ctx, trackedGroups)) {
+        if (!isCurrentGroupTracked(ctxForTrackedCheck, trackedGroups)) {
           sendResponse({ ok: true });
           return;
         }
 
         const keywords = settings.keywords;
-        const groupName = (ctx && ctx.isGroupPage && ctx.groupName) ? ctx.groupName : '';
-        const groupIdentifier = (ctx && ctx.isGroupPage && ctx.groupIdentifier) ? ctx.groupIdentifier : '';
         const groupSlugFromUrl = getSlugFromGroupUrl(pageUrl || '');
         const now = new Date().toISOString();
         const newDetections = [];

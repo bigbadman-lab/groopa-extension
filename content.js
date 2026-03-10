@@ -717,12 +717,20 @@
     const { candidates, nodeCount, selector } = extractVisiblePostCandidates();
     console.log(PREFIX, attemptLabel, '— nodes found:', nodeCount, 'selector:', selector, 'candidates extracted:', candidates.length);
     if (candidates.length === 0) return;
+    const sourceContext = buildFacebookContext();
     try {
       chrome.runtime.sendMessage(
         {
           type: 'PAGE_POST_CANDIDATES_DETECTED',
           candidates: candidates,
           url: window.location.href,
+          sourceContext: {
+            pageUrl: sourceContext.url,
+            isGroupPage: sourceContext.isGroupPage === true,
+            groupIdentifier: sourceContext.groupIdentifier || '',
+            groupName: sourceContext.groupName || '',
+            detectedAt: sourceContext.detectedAt || new Date().toISOString(),
+          },
         },
         function sendMessageCallback() {
           if (chrome.runtime && chrome.runtime.lastError) {

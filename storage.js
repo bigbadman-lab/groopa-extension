@@ -289,19 +289,23 @@ async function appendDetectionsIfNew(newDetections) {
       }
     }
     if (idx >= 0 && reason) {
-      list[idx] = mergeDetectionMetadata(list[idx], d);
+      const existingLead = list[idx];
+      const groupDiff = (existingLead.groupIdentifier !== d.groupIdentifier || (existingLead.groupName || '') !== (d.groupName || ''));
+      list[idx] = mergeDetectionMetadata(existingLead, d);
       if (reason.indexOf('content matched') >= 0 && list[idx].postUrl) {
         const ckM = getCanonicalLeadKey(list[idx]);
         if (ckM) canonicalKeyToIndex[ckM] = idx;
       }
-      log('Dedupe: ' + reason + ', merging metadata (no new lead).');
+      log('Dedupe: ' + reason + ', merging metadata (no new lead).' + (groupDiff ? ' [group attribution differed: existing=' + (existingLead.groupIdentifier || existingLead.groupName || '') + ' incoming=' + (d.groupIdentifier || d.groupName || '') + ']' : ''));
       continue;
     }
     if (seen.has(fp)) {
       idx = list.findIndex(function (x) { return x && x.fingerprint === fp; });
       if (idx >= 0) {
-        list[idx] = mergeDetectionMetadata(list[idx], d);
-        log('Dedupe: fingerprint matched, merging metadata (no new lead).');
+        const existingLead = list[idx];
+        const groupDiff = (existingLead.groupIdentifier !== d.groupIdentifier || (existingLead.groupName || '') !== (d.groupName || ''));
+        list[idx] = mergeDetectionMetadata(existingLead, d);
+        log('Dedupe: fingerprint matched, merging metadata (no new lead).' + (groupDiff ? ' [group attribution differed: existing=' + (existingLead.groupIdentifier || existingLead.groupName || '') + ' incoming=' + (d.groupIdentifier || d.groupName || '') + ']' : ''));
       }
       continue;
     }
