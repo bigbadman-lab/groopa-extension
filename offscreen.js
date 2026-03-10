@@ -1,6 +1,6 @@
 // Groopa offscreen document — used only for playing notification sound (MV3 service workers cannot play audio)
 (function () {
-  const SOUND_URL = chrome.runtime.getURL('assets/sounds/new-lead.wav');
+  const SOUND_URL = chrome.runtime.getURL('assets/sounds/Ping_WAV.wav');
   let audio = null;
 
   function playSound() {
