@@ -24,31 +24,34 @@
 
     <main class="main">
       <section id="panel-monitoring" class="panel panel--active">
-        <header class="welcome-header">
-          <h2 class="welcome-title">Welcome to Groopa 👋</h2>
-          <p class="welcome-desc">Groopa monitors your tracked Facebook groups and alerts you when new opportunities appear.</p>
-          <nav class="welcome-links" aria-label="Helpful links">
-            <a href="https://groopa.com/support" target="_blank" rel="noopener noreferrer" class="welcome-link">Customer Support</a>
-            <a href="https://groopa.com/blog" target="_blank" rel="noopener noreferrer" class="welcome-link">Latest Blog / Tips</a>
-          </nav>
-        </header>
-
-        <div class="summary-bento">
-          <div class="summary-card" id="summary-keywords">
-            <span class="summary-card-label">Keywords</span>
-            <span class="summary-card-count" id="summary-keywords-count">0</span>
+        <div class="monitoring-hero">
+          <header class="welcome-header">
+            <h2 class="welcome-title">Welcome to Groopa 👋</h2>
+            <p class="welcome-desc">Groopa monitors your tracked Facebook groups and alerts you when new opportunities appear.</p>
+            <nav class="welcome-links" aria-label="Helpful links">
+              <a href="https://groopa.com/support" target="_blank" rel="noopener noreferrer" class="welcome-link">Customer Support</a>
+              <a href="https://groopa.com/blog" target="_blank" rel="noopener noreferrer" class="welcome-link">Latest Blog / Tips</a>
+            </nav>
+          </header>
+          <div class="monitoring-hero-stats">
+            <div class="summary-bento">
+              <div class="summary-card" id="summary-keywords">
+                <span class="summary-card-label">Keywords</span>
+                <span class="summary-card-count" id="summary-keywords-count">0</span>
+              </div>
+              <div class="summary-card" id="summary-groups">
+                <span class="summary-card-label">Groups</span>
+                <span class="summary-card-count" id="summary-groups-count">0</span>
+              </div>
+              <div class="summary-card summary-card--clickable" id="summary-leads" role="button" tabindex="0" aria-label="Open Inbox">
+                <span class="summary-card-label">Leads</span>
+                <span class="summary-card-count" id="summary-leads-count">0</span>
+              </div>
+            </div>
+            <div class="summary-actions">
+              <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
+            </div>
           </div>
-          <div class="summary-card" id="summary-groups">
-            <span class="summary-card-label">Groups</span>
-            <span class="summary-card-count" id="summary-groups-count">0</span>
-          </div>
-          <div class="summary-card summary-card--clickable" id="summary-leads" role="button" tabindex="0" aria-label="Open Inbox">
-            <span class="summary-card-label">Leads</span>
-            <span class="summary-card-count" id="summary-leads-count">0</span>
-          </div>
-        </div>
-        <div class="summary-actions">
-          <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
         </div>
 
         <div class="card card-monitor">

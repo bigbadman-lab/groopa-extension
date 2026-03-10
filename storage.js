@@ -115,6 +115,16 @@ async function saveSettings(data) {
 }
 
 /**
+ * Update Telegram settings (stored in local). Merges partial into current telegram.
+ * @param {object} partial - e.g. { enabled: true }, { status: 'pending' }
+ */
+async function updateTelegramSettings(partial) {
+  const current = await getSettings();
+  const telegram = { ...(current.telegram || {}), ...partial };
+  await setInStorageLocal({ telegram });
+}
+
+/**
  * @returns {Promise<object[]>}
  */
 async function getTrackedGroups() {

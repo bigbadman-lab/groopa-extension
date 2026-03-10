@@ -160,6 +160,74 @@ body {
   outline-offset: 2px;
 }
 
+/* Monitoring hero: split layout (heading left, stats right) */
+.monitoring-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px 32px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.monitoring-hero .welcome-header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.monitoring-hero-stats {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.monitoring-hero-stats .summary-bento {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.monitoring-hero-stats .summary-card {
+  padding: 10px 14px;
+  min-width: 120px;
+}
+
+.monitoring-hero-stats .summary-card-count {
+  font-size: 20px;
+}
+
+.monitoring-hero-stats .summary-actions {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .monitoring-hero {
+    flex-direction: column;
+  }
+
+  .monitoring-hero-stats {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .monitoring-hero-stats .summary-bento {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .monitoring-hero-stats .summary-card {
+    min-width: 0;
+  }
+}
+
 /* Dashboard summary bento */
 .summary-bento {
   display: grid;
