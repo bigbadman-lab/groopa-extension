@@ -222,8 +222,27 @@
     }
   }
 
+  // Generic UI phrases we do not want to treat as group names (experiment heuristics)
+  var GROUP_FEED_GENERIC_PHRASES = [
+    'see more', 'see less', 'more', '…', 'group', 'groups', 'feed', 'join', 'joined',
+    'share', 'comment', 'like', 'relevance', 'recent', 'top posts', 'sort',
+  ];
+
+  function looksLikeGenericUi(text) {
+    if (!text || typeof text !== 'string') return true;
+    var t = text.trim().toLowerCase().slice(0, 50);
+    if (t.length === 0) return true;
+    for (var g = 0; g < GROUP_FEED_GENERIC_PHRASES.length; g++) {
+      if (t === GROUP_FEED_GENERIC_PHRASES[g] || t.indexOf(GROUP_FEED_GENERIC_PHRASES[g] + ' ') === 0) return true;
+    }
+    return false;
+  }
+
+  var MAX_GROUP_LINK_CANDIDATES_PER_ARTICLE = 15;
+
   /**
    * Experimental: scan visible posts on /groups/feed and try to extract per-post source group.
+   * Collects ALL valid group-link candidates per article, then picks one by simple heuristics.
    * Results are for inspection only; do not feed into production detection pipeline.
    */
   function runGroupFeedExperiment() {
@@ -236,21 +255,45 @@
     for (let i = 0; i < articles.length; i++) {
       const article = articles[i];
       const text = (article.innerText || article.textContent || '').trim().replace(/\s+/g, ' ').slice(0, previewLen);
-      const links = article.querySelectorAll('a[href*="/groups/"]');
-      let extractedGroupName = '';
-      let extractedGroupUrl = '';
-      let extractedGroupKey = '';
+      const linkEls = article.querySelectorAll('a[href*="/groups/"]');
+      const groupLinkCandidates = [];
 
-      for (let j = 0; j < links.length; j++) {
-        const a = links[j];
-        const parsed = parseGroupLink(a.getAttribute('href') || '');
+      for (let j = 0; j < linkEls.length && groupLinkCandidates.length < MAX_GROUP_LINK_CANDIDATES_PER_ARTICLE; j++) {
+        const a = linkEls[j];
+        const href = a.getAttribute('href') || '';
+        const parsed = parseGroupLink(href);
         if (!parsed) continue;
-        extractedGroupUrl = parsed.url;
-        extractedGroupKey = parsed.key;
-        const name = (a.textContent || '').trim();
-        if (name && name.length < 200) extractedGroupName = name;
-        break;
+        const linkText = (a.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 150);
+        groupLinkCandidates.push({
+          positionIndex: j,
+          href: href,
+          normalizedUrl: parsed.url,
+          key: parsed.key,
+          text: linkText,
+          isNumeric: /^[0-9]+$/.test(parsed.segment),
+        });
       }
+
+      // Heuristic pick: prefer non-empty text, text that looks like a name, and earlier position
+      let chosen = null;
+      let bestScore = -1;
+      for (let k = 0; k < groupLinkCandidates.length; k++) {
+        const c = groupLinkCandidates[k];
+        let score = 0;
+        if (c.text.length > 0) score += 2;
+        if (c.text.length >= 2 && c.text.length <= 100) score += 1;
+        if (looksLikeGenericUi(c.text)) score -= 2;
+        score -= c.positionIndex * 0.1;
+        if (score > bestScore) {
+          bestScore = score;
+          chosen = c;
+        }
+      }
+      if (!chosen && groupLinkCandidates.length > 0) chosen = groupLinkCandidates[0];
+
+      const extractedGroupName = chosen && chosen.text ? chosen.text : '';
+      const extractedGroupUrl = chosen ? chosen.normalizedUrl : '';
+      const extractedGroupKey = chosen ? chosen.key : '';
 
       results.push({
         articleIndex: i,
@@ -258,6 +301,7 @@
         extractedGroupName: extractedGroupName,
         extractedGroupUrl: extractedGroupUrl,
         extractedGroupKey: extractedGroupKey,
+        groupLinkCandidates: groupLinkCandidates,
       });
     }
 
