@@ -52,6 +52,9 @@ const summaryGroupsCountEl = document.getElementById('summary-groups-count');
 const summaryLeadsCountEl = document.getElementById('summary-leads-count');
 const summaryLeadsCardEl = document.getElementById('summary-leads');
 const openInboxBtn = document.getElementById('open-inbox-btn');
+const suggestedKeywordsWrapEl = document.getElementById('suggested-keywords-wrap');
+const suggestedKeywordsListEl = document.getElementById('suggested-keywords-list');
+const suggestedAddAllBtn = document.getElementById('suggested-add-all-btn');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -60,6 +63,8 @@ let detectionsList = [];
 let selectedInboxDetection = null;
 let generatedReplyText = '';
 let isScanningGroups = false;
+/** Suggestions for the last-added keyword; only shown in UI, not stored until user clicks Add. */
+let currentSuggestions = [];
 
 const DEMO_NOW = new Date().toISOString();
 const DEMO_DETECTED_GROUPS = [
@@ -97,6 +102,58 @@ function parseFacebookGroupUrl(input) {
   const normalizedUrl = normalizeFacebookGroupUrl(raw);
   if (!normalizedUrl || normalizedUrl.indexOf('/groups/') === -1) return null;
   return { slug, url: normalizedUrl };
+}
+
+/**
+ * Normalize keyword for duplicate check (trim, lowercase).
+ */
+function normalizeKeywordForCompare(kw) {
+  return (kw != null ? String(kw).trim() : '').toLowerCase();
+}
+
+/**
+ * Generate 5–12 related keyword suggestions for Facebook lead phrasing.
+ * Local template-based MVP: direct variants, recommendation phrases, problem/urgency phrases.
+ * Does not call any API; safe to run in extension without backend.
+ */
+function getKeywordSuggestions(keyword) {
+  const raw = (keyword != null ? String(keyword).trim() : '');
+  if (!raw) return [];
+  const k = raw.toLowerCase();
+  const cap = (s) => (s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s);
+  const stem = k.replace(/er$/i, '').replace(/s$/i, '');
+  const stemCap = stem.length > 0 ? stem[0].toUpperCase() + stem.slice(1) : stem;
+  const stemIng = stem ? stem + (stem.endsWith('e') ? 'ing' : 'ing') : '';
+  const stemIngCap = stemIng ? stemIng[0].toUpperCase() + stemIng.slice(1) : stemIng;
+  const wordCap = cap(raw);
+  const templates = [
+    stemCap + ' repair',
+    stemIngCap + ' company',
+    'leaking ' + stemCap,
+    stemCap + ' tiles',
+    'recommend a ' + wordCap,
+    'anyone know a ' + wordCap,
+    'emergency ' + wordCap,
+    wordCap + ' repair',
+    wordCap + ' company',
+    'looking for ' + wordCap,
+    'need a ' + wordCap,
+    'good ' + wordCap,
+    'best ' + wordCap,
+    wordCap + ' near me',
+    wordCap + ' recommendation',
+  ];
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < templates.length && out.length < 12; i++) {
+    const t = templates[i].trim();
+    const n = normalizeKeywordForCompare(t);
+    if (n && n !== normalizeKeywordForCompare(raw) && !seen.has(n)) {
+      seen.add(n);
+      out.push(t);
+    }
+  }
+  return out.slice(0, 12);
 }
 
 /**
@@ -157,6 +214,7 @@ async function loadPage() {
   trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
 
   renderKeywords();
+  renderSuggestedKeywords();
   renderDetectedGroups();
   await refreshInboxFromStorage();
   updateSummaryCounts();
@@ -278,9 +336,63 @@ function renderKeywords() {
       keywordList = keywordList.filter((_, i) => i !== index);
       await saveSettings({ keywords: keywordList });
       renderKeywords();
+      renderSuggestedKeywords();
       updateSummaryCounts();
     });
   });
+}
+
+/**
+ * Render suggested keywords (from last added keyword). Hides suggestions already in keywordList.
+ * Only suggestions that are not yet tracked are shown; each has Add, and Add all adds the rest.
+ */
+function renderSuggestedKeywords() {
+  if (!suggestedKeywordsListEl || !suggestedKeywordsWrapEl) return;
+  const existingSet = new Set(keywordList.map(normalizeKeywordForCompare));
+  const toShow = currentSuggestions.filter((s) => !existingSet.has(normalizeKeywordForCompare(s)));
+  suggestedKeywordsListEl.innerHTML = '';
+  if (toShow.length === 0) {
+    suggestedKeywordsWrapEl.hidden = true;
+    return;
+  }
+  suggestedKeywordsWrapEl.hidden = false;
+  toShow.forEach((phrase) => {
+    const chip = document.createElement('div');
+    chip.className = 'suggestion-chip';
+    const text = document.createElement('span');
+    text.className = 'suggestion-chip-text';
+    text.textContent = phrase;
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-primary suggestion-chip-add';
+    addBtn.textContent = 'Add';
+    addBtn.addEventListener('click', async () => {
+      const norm = normalizeKeywordForCompare(phrase);
+      if (keywordList.some((kw) => normalizeKeywordForCompare(kw) === norm)) return;
+      keywordList.push(phrase);
+      await saveSettings({ keywords: keywordList });
+      renderKeywords();
+      renderSuggestedKeywords();
+      updateSummaryCounts();
+    });
+    chip.appendChild(text);
+    chip.appendChild(addBtn);
+    suggestedKeywordsListEl.appendChild(chip);
+  });
+  if (suggestedAddAllBtn) {
+    suggestedAddAllBtn.onclick = async () => {
+      const existingSet2 = new Set(keywordList.map(normalizeKeywordForCompare));
+      const toAdd = currentSuggestions.filter((s) => !existingSet2.has(normalizeKeywordForCompare(s)));
+      toAdd.forEach((s) => {
+        const n = normalizeKeywordForCompare(s);
+        if (!keywordList.some((kw) => normalizeKeywordForCompare(kw) === n)) keywordList.push(s);
+      });
+      await saveSettings({ keywords: keywordList });
+      renderKeywords();
+      renderSuggestedKeywords();
+      updateSummaryCounts();
+    };
+  }
 }
 
 function showAddGroupForm() {
@@ -333,7 +445,8 @@ if (keywordAddBtn && keywordInput) {
   keywordAddBtn.addEventListener('click', async () => {
     const raw = (keywordInput.value || '').trim();
     if (!raw) return;
-    if (keywordList.includes(raw)) {
+    const norm = normalizeKeywordForCompare(raw);
+    if (keywordList.some((kw) => normalizeKeywordForCompare(kw) === norm)) {
       keywordInput.value = '';
       return;
     }
@@ -342,6 +455,8 @@ if (keywordAddBtn && keywordInput) {
     renderKeywords();
     updateSummaryCounts();
     keywordInput.value = '';
+    currentSuggestions = getKeywordSuggestions(raw);
+    renderSuggestedKeywords();
   });
   keywordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -739,6 +854,7 @@ chrome.storage.onChanged.addListener(function (changes, areaName) {
     const value = changes.keywords.newValue;
     keywordList = Array.isArray(value) ? value.slice() : [];
     renderKeywords();
+    renderSuggestedKeywords();
     updateSummaryCounts();
   }
 });

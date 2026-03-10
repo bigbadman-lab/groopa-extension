@@ -347,6 +347,62 @@ body {
   margin: 0;
 }
 
+/* Suggested related keywords (shown after user adds a keyword) */
+.suggested-keywords-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.suggested-keywords-title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.suggested-keywords-hint {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.suggested-keywords-actions {
+  margin-bottom: 10px;
+}
+
+.suggested-keywords-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: #f5f5f5;
+  color: #333;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.suggestion-chip-text {
+  flex: 0 1 auto;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-chip-add {
+  padding: 4px 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
 .btn-sm {
   padding: 6px 12px;
   font-size: 13px;
