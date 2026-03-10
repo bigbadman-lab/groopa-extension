@@ -11,6 +11,7 @@ const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 const inboxListEl = document.getElementById('inbox-list');
+const inboxLayoutEl = document.getElementById('inbox-layout');
 const inboxEmptyStateEl = document.getElementById('inbox-empty-state');
 const inboxTwoPanelsEl = document.getElementById('inbox-two-panels');
 const inboxStatTotalEl = document.getElementById('inbox-stat-total');
@@ -429,7 +430,8 @@ function formatOptDate(iso) {
 }
 
 /**
- * Update header stats (total and new count) and empty vs two-panel visibility.
+ * Update header stats (total and new count). When 0 leads, show only empty state and remove
+ * the split layout from the DOM so no blank panel is visible. When 1+ leads, show split layout.
  */
 function updateInboxHeaderAndPanels() {
   const list = detectionsList || [];
@@ -440,8 +442,17 @@ function updateInboxHeaderAndPanels() {
     inboxStatNewEl.hidden = newCount === 0;
     inboxStatNewEl.textContent = newCount > 0 ? newCount + ' new' : '';
   }
-  if (inboxEmptyStateEl) inboxEmptyStateEl.hidden = total > 0;
-  if (inboxTwoPanelsEl) inboxTwoPanelsEl.hidden = total === 0;
+  if (total === 0) {
+    if (inboxEmptyStateEl) inboxEmptyStateEl.hidden = false;
+    if (inboxTwoPanelsEl && inboxTwoPanelsEl.parentNode && inboxLayoutEl) {
+      inboxLayoutEl.removeChild(inboxTwoPanelsEl);
+    }
+  } else {
+    if (inboxEmptyStateEl) inboxEmptyStateEl.hidden = true;
+    if (inboxTwoPanelsEl && !inboxTwoPanelsEl.parentNode && inboxLayoutEl) {
+      inboxLayoutEl.appendChild(inboxTwoPanelsEl);
+    }
+  }
 }
 
 /**
