@@ -4,7 +4,7 @@
 const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'desktopAlertsEnabled'];
 
 // Local: larger operational data (no strict quota per item)
-const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'monitoringState', 'telegram'];
+const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'groupFeedFingerprints', 'monitoringState', 'telegram'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -17,6 +17,7 @@ const DEFAULTS = {
   lastFacebookContext: null,
   pagePostCandidates: [],
   groupLastScannedAt: {},
+  groupFeedFingerprints: {},
   monitoringState: {
     monitoringEnabled: false,
     monitorWindowId: null,
@@ -94,6 +95,7 @@ async function getSettings() {
     lastFacebookContext: rawLocal.lastFacebookContext != null ? rawLocal.lastFacebookContext : DEFAULTS.lastFacebookContext,
     pagePostCandidates: Array.isArray(rawLocal.pagePostCandidates) ? rawLocal.pagePostCandidates : DEFAULTS.pagePostCandidates,
     groupLastScannedAt: rawLocal.groupLastScannedAt != null && typeof rawLocal.groupLastScannedAt === 'object' ? rawLocal.groupLastScannedAt : DEFAULTS.groupLastScannedAt,
+    groupFeedFingerprints: rawLocal.groupFeedFingerprints != null && typeof rawLocal.groupFeedFingerprints === 'object' ? rawLocal.groupFeedFingerprints : DEFAULTS.groupFeedFingerprints,
     monitoringState: rawLocal.monitoringState != null && typeof rawLocal.monitoringState === 'object' ? { ...DEFAULTS.monitoringState, ...rawLocal.monitoringState } : DEFAULTS.monitoringState,
     telegram: rawLocal.telegram != null && typeof rawLocal.telegram === 'object' ? { ...DEFAULTS.telegram, ...rawLocal.telegram } : DEFAULTS.telegram,
   };
@@ -784,6 +786,27 @@ async function setGroupLastScannedAt(groupKey, isoDateString) {
   const current = await getGroupLastScannedAt();
   const next = { ...current, [String(groupKey).toLowerCase()]: isoDateString };
   await setInStorageLocal({ groupLastScannedAt: next });
+}
+
+/**
+ * Get per-group top feed fingerprints for freshness early-exit (groupKey -> [fp0, fp1]).
+ * @returns {Promise<object>}
+ */
+async function getGroupFeedFingerprints() {
+  const raw = await getFromStorageLocal(['groupFeedFingerprints']);
+  return raw.groupFeedFingerprints != null && typeof raw.groupFeedFingerprints === 'object' ? raw.groupFeedFingerprints : {};
+}
+
+/**
+ * Set top feed fingerprints for a group (used after full scan for next early-exit check).
+ * @param {string} groupKey - stable key (id or slug, lowercase)
+ * @param {string[]} fingerprints - array of 2 strings from first 2 posts
+ */
+async function setGroupFeedFingerprints(groupKey, fingerprints) {
+  if (!groupKey || !Array.isArray(fingerprints) || fingerprints.length < 2) return;
+  const current = await getGroupFeedFingerprints();
+  const next = { ...current, [String(groupKey).toLowerCase()]: fingerprints.slice(0, 2) };
+  await setInStorageLocal({ groupFeedFingerprints: next });
 }
 
 /**

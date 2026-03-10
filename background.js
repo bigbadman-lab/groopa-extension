@@ -16,6 +16,46 @@ function getMatchingKeywords(normalizedText, keywords) {
 }
 
 /**
+ * Build a lightweight fingerprint for one post candidate (for feed freshness check).
+ * Uses text preview and post URL only. Returns null if candidate is too empty to be reliable.
+ * @param {object} candidate - { textPreview?, postUrl? }
+ * @returns {string|null}
+ */
+function buildPostFingerprint(candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const text = (candidate.textPreview != null ? String(candidate.textPreview) : '').trim();
+  const url = (candidate.postUrl != null ? String(candidate.postUrl) : '').trim();
+  const normalizedText = normalizeTextForFingerprint(text.slice(0, 150));
+  const urlSlice = url.slice(0, 200);
+  if (!normalizedText && !urlSlice) return null;
+  return urlSlice + '|' + normalizedText;
+}
+
+/**
+ * Get fingerprints for the first 2 candidates. Returns null if fewer than 2 reliable fingerprints.
+ * @param {object[]} candidates
+ * @returns {string[]|null}
+ */
+function getTopFeedFingerprints(candidates) {
+  if (!Array.isArray(candidates) || candidates.length < 2) return null;
+  const fp0 = buildPostFingerprint(candidates[0]);
+  const fp1 = buildPostFingerprint(candidates[1]);
+  if (fp0 == null || fp1 == null) return null;
+  return [fp0, fp1];
+}
+
+/**
+ * True if the top of the feed is unchanged (same first 2 fingerprints in order).
+ * @param {string[]} previous - stored [fp0, fp1]
+ * @param {string[]} current - current [fp0, fp1]
+ * @returns {boolean}
+ */
+function isFeedUnchanged(previous, current) {
+  if (!Array.isArray(previous) || previous.length < 2 || !Array.isArray(current) || current.length < 2) return false;
+  return previous[0] === current[0] && previous[1] === current[1];
+}
+
+/**
  * Returns true if the current Facebook context is a group that the user is tracking.
  * Uses group ID, slug from URL, and normalized URL (storage.js helpers).
  * @param {object|null} context - lastFacebookContext (isGroupPage, groupIdentifier, url)
@@ -551,6 +591,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
+        const groupKey = (groupIdentifier && String(groupIdentifier).trim())
+          ? String(groupIdentifier).trim().toLowerCase()
+          : (getSlugFromGroupUrl(pageUrl || '') || '').toLowerCase();
+        const topFps = getTopFeedFingerprints(list);
+        if (topFps && topFps.length >= 2) {
+          const stored = await getGroupFeedFingerprints();
+          const prev = stored[groupKey];
+          if (Array.isArray(prev) && prev.length >= 2 && isFeedUnchanged(prev, topFps)) {
+            console.log('[Groopa] Group feed unchanged, skipping full scan:', groupKey || groupName || pageUrl.slice(0, 50));
+            sendResponse({ ok: true });
+            return;
+          }
+        }
+
         const keywords = settings.keywords;
         const groupSlugFromUrl = getSlugFromGroupUrl(pageUrl || '');
         const now = new Date().toISOString();
@@ -604,10 +658,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let added = [];
         if (newDetections.length > 0) {
           added = await appendDetectionsIfNew(newDetections);
-          const groupKey = (groupIdentifier && String(groupIdentifier).trim()) ? String(groupIdentifier).trim().toLowerCase() : getSlugFromGroupUrl(pageUrl || '').toLowerCase();
           if (groupKey) {
             await setGroupLastScannedAt(groupKey, now);
           }
+        }
+
+        if (groupKey && topFps && topFps.length >= 2) {
+          await setGroupFeedFingerprints(groupKey, topFps);
         }
 
         if (added.length > 0) {
