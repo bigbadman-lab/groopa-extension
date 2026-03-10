@@ -235,26 +235,57 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-const NOTIFICATION_CONTEXT_KEY = 'groopaNotificationContext';
+const NOTIFICATION_CONTEXT_MAP_KEY = 'groopaNotificationContextMap';
+const NOTIFICATION_CONTEXT_TTL_MS = 24 * 60 * 60 * 1000;
 
-function getNotificationContext() {
+function getNotificationContextMap() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(NOTIFICATION_CONTEXT_KEY, (raw) => {
-      const v = raw[NOTIFICATION_CONTEXT_KEY];
-      resolve(v && typeof v === 'object' ? v : null);
+    chrome.storage.local.get(NOTIFICATION_CONTEXT_MAP_KEY, (raw) => {
+      const v = raw[NOTIFICATION_CONTEXT_MAP_KEY];
+      resolve(v && typeof v === 'object' ? v : {});
     });
   });
 }
 
-function setNotificationContext(data) {
+function setNotificationContextFor(notificationId, data) {
   return new Promise((resolve) => {
-    chrome.storage.local.set({ [NOTIFICATION_CONTEXT_KEY]: data }, resolve);
+    getNotificationContextMap().then((map) => {
+      const now = Date.now();
+      map[notificationId] = { pageUrl: data.pageUrl, createdAt: now };
+      const cutoff = now - NOTIFICATION_CONTEXT_TTL_MS;
+      const keys = Object.keys(map);
+      for (let i = 0; i < keys.length; i++) {
+        if (map[keys[i]] && map[keys[i]].createdAt < cutoff) delete map[keys[i]];
+      }
+      chrome.storage.local.set({ [NOTIFICATION_CONTEXT_MAP_KEY]: map }, resolve);
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[Groopa] Notification context stored for', notificationId);
+      }
+    });
   });
 }
 
-function clearNotificationContext() {
+function getNotificationContext(notificationId) {
   return new Promise((resolve) => {
-    chrome.storage.local.remove(NOTIFICATION_CONTEXT_KEY, resolve);
+    getNotificationContextMap().then((map) => {
+      const ctx = notificationId && map[notificationId] ? map[notificationId] : null;
+      resolve(ctx);
+    });
+  });
+}
+
+function clearNotificationContext(notificationId) {
+  if (!notificationId) return Promise.resolve();
+  return new Promise((resolve) => {
+    getNotificationContextMap().then((map) => {
+      delete map[notificationId];
+      chrome.storage.local.set({ [NOTIFICATION_CONTEXT_MAP_KEY]: map }, () => {
+        if (typeof console !== 'undefined' && console.log) {
+          console.log('[Groopa] Notification context cleaned up for', notificationId);
+        }
+        resolve();
+      });
+    });
   });
 }
 
@@ -348,7 +379,7 @@ async function handleNewLeadAlert(added) {
       ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
       : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
   const notificationId = 'groopa-lead-' + Date.now();
-  await setNotificationContext({ notificationId, pageUrl: d.postUrl || d.pageUrl || '' });
+  await setNotificationContextFor(notificationId, { pageUrl: d.postUrl || d.pageUrl || '' });
   try {
     const iconUrl = chrome.runtime.getURL('icons/icon128.png');
     await chrome.notifications.create(notificationId, {
@@ -367,23 +398,28 @@ function setOpenInboxOnNextLoad() {
   chrome.storage.local.set({ [OPEN_INBOX_ON_NEXT_LOAD_KEY]: true });
 }
 
-chrome.notifications.onClicked.addListener(() => {
+chrome.notifications.onClicked.addListener((notificationId) => {
   setOpenInboxOnNextLoad();
   chrome.runtime.openOptionsPage();
+  clearNotificationContext(notificationId);
 });
 
 chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
   if (buttonIndex === 0) {
     setOpenInboxOnNextLoad();
     chrome.runtime.openOptionsPage();
+    clearNotificationContext(notificationId);
     return;
   }
   if (buttonIndex === 1) {
-    getNotificationContext().then((ctx) => {
+    getNotificationContext(notificationId).then((ctx) => {
       if (ctx && ctx.pageUrl) {
+        if (typeof console !== 'undefined' && console.log) {
+          console.log('[Groopa] Notification context used on click for', notificationId);
+        }
         chrome.tabs.create({ url: ctx.pageUrl });
       }
-      clearNotificationContext();
+      clearNotificationContext(notificationId);
     });
   }
 });
