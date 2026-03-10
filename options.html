@@ -184,7 +184,15 @@
         </div>
         <div class="card">
           <h3 class="card-title">Telegram</h3>
-          <p class="card-hint">Telegram alerts coming soon.</p>
+          <p class="card-hint">Receive instant Telegram messages for genuinely new leads.</p>
+          <div class="option-row">
+            <input type="checkbox" id="telegram-enabled" class="option-checkbox" />
+            <label for="telegram-enabled" class="option-label">Send Telegram alerts when a new lead is detected</label>
+          </div>
+          <p class="card-hint"><span id="telegram-status-text">Status: Not connected</span></p>
+          <div class="button-row">
+            <button type="button" id="telegram-connect-btn" class="btn btn-secondary btn-sm">Connect Telegram</button>
+          </div>
         </div>
       </section>
 
