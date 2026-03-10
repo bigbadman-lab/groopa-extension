@@ -105,12 +105,14 @@
 
   /**
    * Strip UI chrome from a candidate group name (members, posts, "Public group", etc.).
+   * Removes "Last active ... ago" even when glued to the name with no separator.
    */
   function cleanGroupNameForJoins(str) {
     if (!str || typeof str !== 'string') return '';
     let s = str.trim().replace(/\s+/g, ' ');
-    // Remove "Last active X <unit> ago" (e.g. "Last active 12 weeks ago", "· Last active 2 days ago")
-    s = s.replace(/\s*[·\-–]?\s*Last\s+active\s+\d+\s+(?:minutes?|hours?|days?|weeks?|months?|years?)\s+ago\s*/gi, '');
+    // Remove "Last active [about ]?(a|an|number) <unit> ago" at end (with or without leading separator/space).
+    // Handles: "Last active a day ago", "Last active about an hour ago", "NameLast active 2 hours ago", "· Last active 3 weeks ago"
+    s = s.replace(/(?:[·\-–]\s*|\s)?Last\s+active\s+(?:about\s+)?(?:a|an|\d+)\s+(?:minute?s?|hour?s?|day?s?|week?s?|month?s?|year?s?)\s+ago\s*$/gi, '');
     // Remove common suffixes: "· 5.2K members", "· 12 posts this week", "Public group", "Join", "Joined", "Leave"
     s = s.replace(/\s*·\s*[\d.,KkMm]+?\s*(members?|posts?\s*(this\s*week|today)?)\s*$/gi, '');
     s = s.replace(/\s*Public\s+group\s*$/gi, '');
