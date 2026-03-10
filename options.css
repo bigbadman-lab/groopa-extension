@@ -428,6 +428,10 @@ body {
   margin-bottom: 16px;
 }
 
+.keywords-actions {
+  margin-bottom: 12px;
+}
+
 .keyword-input {
   flex: 1;
   min-width: 0;

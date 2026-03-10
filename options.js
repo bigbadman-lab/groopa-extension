@@ -56,6 +56,7 @@ const openInboxBtn = document.getElementById('open-inbox-btn');
 const suggestedKeywordsWrapEl = document.getElementById('suggested-keywords-wrap');
 const suggestedKeywordsListEl = document.getElementById('suggested-keywords-list');
 const suggestedAddAllBtn = document.getElementById('suggested-add-all-btn');
+const keywordsClearBtn = document.getElementById('keywords-clear-btn');
 const telegramEnabledCheckbox = document.getElementById('telegram-enabled');
 const telegramStatusTextEl = document.getElementById('telegram-status-text');
 const telegramConnectBtn = document.getElementById('telegram-connect-btn');
@@ -506,6 +507,19 @@ if (keywordAddBtn && keywordInput) {
       e.preventDefault();
       keywordAddBtn.click();
     }
+  });
+}
+
+if (keywordsClearBtn) {
+  keywordsClearBtn.addEventListener('click', async () => {
+    if (keywordList.length === 0) return;
+    if (!window.confirm('Remove all tracked keywords? You can add new ones anytime.')) return;
+    keywordList = [];
+    await saveSettings({ keywords: [] });
+    currentSuggestions = [];
+    renderKeywords();
+    renderSuggestedKeywords();
+    updateSummaryCounts();
   });
 }
 
