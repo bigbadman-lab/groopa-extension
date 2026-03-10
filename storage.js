@@ -421,6 +421,48 @@ function getSlugFromGroupUrl(url) {
 }
 
 /**
+ * Clean raw lead text for display only (inbox, notifications). Removes trailing UI junk,
+ * Facebook badges, and optionally a leading author-name prefix. Does not change stored text.
+ * @param {string} rawText - textPreview or text from a detection
+ * @returns {string} cleaned display string
+ */
+function cleanLeadDisplayText(rawText) {
+  if (rawText == null || typeof rawText !== 'string') return '';
+  let s = String(rawText)
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!s) return '';
+
+  // Trailing: relative time + action labels (e.g. "1m Like Reply Share", "3h Like Reply Share")
+  s = s.replace(/\s+(?:\d+\s*[mhdw]|\d+\s*hrs?|\d+\s*days?|\d+\s*weeks?|\d+\s*months?|\d+\s*years?|just\s+now)\s*(?:Like|Reply|Share|Comment|Send)(?:\s*(?:Like|Reply|Share|Comment|Send))*\s*$/gi, '');
+  s = s.replace(/\s+about\s+(?:an?\s+)?(?:\d+\s+)?(?:minute|hour|day|week|month|year)s?\s+ago\s*(?:Like|Reply|Share|Comment|Send)?(?:\s*(?:Like|Reply|Share|Comment|Send))*\s*$/gi, '');
+  s = s.replace(/\s+(?:Like|Reply|Share|Comment|Send)(?:\s*(?:Like|Reply|Share|Comment|Send))*\s*$/gi, '');
+  s = s.replace(/\s+\d+\s*[mhdw]\s*$/gi, '');
+  s = s.replace(/\s+\d+\s*hrs?\s*$/gi, '');
+  s = s.replace(/\s+\d+\s*days?\s*$/gi, '');
+  s = s.replace(/\s+(?:just\s+now|yesterday|today)\s*$/gi, '');
+  s = s.trim();
+
+  // Facebook badge/label phrases (anywhere in string)
+  s = s.replace(/\bAll-star\s+contributor\b/gi, '').trim();
+  s = s.replace(/\bTop\s+contributor\b/gi, '').trim();
+  s = s.replace(/\s+/g, ' ').trim();
+
+  // Conservative leading author prefix: only 1–2 title-case words when remainder is long enough
+  const leadingNameMatch = s.match(/^\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(.+)$/);
+  if (leadingNameMatch) {
+    const remainder = leadingNameMatch[2].trim();
+    if (remainder.length >= 20) {
+      s = remainder;
+      s = s.replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  return s;
+}
+
+/**
  * Strip unstable Facebook UI noise from extracted post text so the same post
  * produces the same fingerprint across scans. Removes relative times (54m, 1h, 3d)
  * and action labels (Like, Reply, Share). Use the result only for fingerprinting;

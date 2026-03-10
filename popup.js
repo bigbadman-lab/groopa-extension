@@ -187,7 +187,8 @@ async function loadAndRender() {
     recentDetectionsEl.innerHTML = previewList
       .map((d) => {
         const groupLabel = d.groupName || d.groupIdentifier || 'Group';
-        const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+        const rawText = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+        const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
         const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
         const keywordLabel = d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : '');
         const isNew = d.status !== 'opened';
@@ -223,7 +224,8 @@ async function loadAndRender() {
 
 function showLeadDetail(detection) {
   const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
-  const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const rawText = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
   const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
   leadDetailGroup.textContent = groupLabel;
   leadDetailTime.textContent = 'Detected ' + formatDate(detection.createdAt);

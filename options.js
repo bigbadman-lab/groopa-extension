@@ -607,7 +607,8 @@ function renderInbox() {
   inboxListEl.innerHTML = list
     .map((d, index) => {
       const groupLabel = escapeOpt(d.groupName || d.groupIdentifier || 'Group');
-      const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+      const rawText = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
+      const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
       const snippet = text.length > snippetLen ? text.slice(0, snippetLen) + '…' : text;
       const keywordLabel = escapeOpt(d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : ''));
       const dateStr = formatOptDate(d.createdAt);
@@ -657,7 +658,8 @@ function showInboxDetailContent(detection) {
   if (!detection) return;
   generatedReplyText = '';
   const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
-  const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const rawText = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
+  const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
   const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
   if (inboxDetailGroup) inboxDetailGroup.textContent = groupLabel;
   if (inboxDetailTime) inboxDetailTime.textContent = 'Detected ' + formatOptDate(detection.createdAt);

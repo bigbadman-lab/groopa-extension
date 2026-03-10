@@ -372,7 +372,8 @@ async function handleNewLeadAlert(added) {
   if (!settings.desktopAlertsEnabled) return;
   const d = trulyNew[0];
   const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
-  const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
+  const rawPreview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim() : '';
+  const preview = (typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawPreview) : rawPreview).slice(0, 80);
   const title = trulyNew.length > 1 ? trulyNew.length + ' new Groopa leads' : 'New Groopa lead';
   const message =
     trulyNew.length > 1
