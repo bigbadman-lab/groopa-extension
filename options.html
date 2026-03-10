@@ -28,8 +28,19 @@
           <header class="welcome-header">
             <h2 class="welcome-title">Dashboard</h2>
             <p class="welcome-desc">Monitor your tracked Facebook groups and get alerted when new opportunities match your keywords.</p>
+            <div id="monitor-validation-msg" class="monitor-validation-msg monitor-validation-msg--hero" hidden>
+              <p class="monitor-validation-title">Add a group before starting</p>
+              <p class="monitor-validation-body">Track at least one Facebook group below, then start monitoring.</p>
+            </div>
+            <div class="monitor-status-wrap monitor-status-wrap--hero">
+              <p class="monitor-status" id="monitor-status-text">—</p>
+              <p class="monitor-meta" id="monitor-meta">—</p>
+            </div>
+            <p class="monitor-window-hint monitor-window-hint--hero" id="monitor-window-hint">Start monitoring to launch the monitor window.</p>
             <div class="hero-actions hero-actions--primary">
               <button type="button" id="monitor-start-btn" class="btn btn-primary">Start Monitoring</button>
+              <button type="button" id="monitor-stop-btn" class="btn btn-secondary btn-sm">Stop Monitoring</button>
+              <button type="button" id="monitor-open-window-btn" class="btn btn-secondary btn-sm">Open Monitor Window</button>
               <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
             </div>
             <nav class="welcome-links" aria-label="Helpful links">
@@ -55,25 +66,6 @@
           </div>
         </div>
 
-        <div class="card card-monitor">
-          <h3 class="card-title">Monitor status</h3>
-          <p class="card-hint card-hint--brief">A dedicated window rotates through your tracked groups. Keep Chrome logged into Facebook.</p>
-          <div id="monitor-validation-msg" class="monitor-validation-msg" hidden>
-            <p class="monitor-validation-title">Add a group before starting</p>
-            <p class="monitor-validation-body">Track at least one Facebook group below, then start monitoring from the dashboard.</p>
-          </div>
-          <div class="monitor-status-wrap">
-            <p class="monitor-status" id="monitor-status-text">—</p>
-            <p class="monitor-meta" id="monitor-meta">—</p>
-          </div>
-          <p class="monitor-window-hint" id="monitor-window-hint">Start monitoring above to launch the monitor window.</p>
-          <div class="button-row">
-            <button type="button" id="monitor-start-btn-card" class="btn btn-primary btn-sm">Start Monitoring</button>
-            <button type="button" id="monitor-stop-btn" class="btn btn-secondary">Stop Monitoring</button>
-            <button type="button" id="monitor-open-window-btn" class="btn btn-secondary">Open Monitor Window</button>
-          </div>
-        </div>
-
         <div class="card card-keywords">
           <h3 class="card-title">Tracked keywords</h3>
           <p class="card-hint card-hint--brief">Posts containing these keywords in tracked groups become leads in your inbox.</p>
@@ -93,35 +85,42 @@
           </div>
         </div>
 
-        <div class="card card-groups">
+        <div class="card card-groups card-groups--expanded">
           <h3 class="card-title">Facebook groups</h3>
-          <p class="card-hint card-hint--brief">Scan to find groups you belong to, or add by URL below. Track groups to include them in monitoring.</p>
+          <p class="card-hint card-hint--brief">Scan to find groups you belong to, or add by URL below. Click a group row to track or untrack it for monitoring.</p>
           <div class="groups-scan-row">
             <button type="button" id="scan-groups-btn" class="btn btn-primary btn-sm">Scan my groups</button>
             <span id="scan-groups-status" class="scan-status-text"></span>
           </div>
-          <div class="groups-list-scroll groups-list-scroll--compact" id="detected-groups-scroll">
-            <div id="detected-groups" class="groups-list"></div>
+          <div id="groups-scanning-state" class="groups-scanning-state" hidden aria-live="polite">
+            <div class="groups-scanning-state__inner">
+              <div class="groups-scanning-spinner" aria-hidden="true"></div>
+              <div class="groups-scanning-state__content">
+                <p class="groups-scanning-state__title">Scanning Facebook groups</p>
+                <p class="groups-scanning-state__copy">Groopa is checking the groups you're currently a member of. Keep Facebook open in this browser while we scan.</p>
+              </div>
+            </div>
           </div>
+          <div class="groups-list-scroll" id="detected-groups-scroll">
+            <div id="detected-groups" class="groups-list"></div>
           </div>
           <div class="card-sub manual-add-block">
             <h4 class="card-subtitle">Can't find your group?</h4>
             <p class="card-hint card-hint--brief">Add a group by pasting its Facebook URL.</p>
             <button type="button" id="add-manually-btn" class="btn btn-secondary btn-sm">Add by URL</button>
             <div id="add-group-form" class="add-group-form" hidden>
-            <div class="add-group-row">
-              <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
-              <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
-            </div>
-            <div class="add-group-form-actions">
-              <button type="button" id="add-group-cancel" class="btn btn-secondary">Cancel</button>
-            </div>
-            <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
+              <div class="add-group-row">
+                <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
+                <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
+              </div>
+              <div class="add-group-form-actions">
+                <button type="button" id="add-group-cancel" class="btn btn-secondary">Cancel</button>
+              </div>
+              <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
             </div>
           </div>
         </div>
       </section>
-
       <section id="panel-inbox" class="panel">
         <div class="inbox-page-header">
           <h2 class="inbox-page-title">Inbox</h2>

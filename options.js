@@ -41,13 +41,13 @@ const sidebarVersionEl = document.getElementById('sidebar-version');
 const monitorStatusText = document.getElementById('monitor-status-text');
 const monitorMeta = document.getElementById('monitor-meta');
 const monitorStartBtn = document.getElementById('monitor-start-btn');
-const monitorStartBtnCard = document.getElementById('monitor-start-btn-card');
 const monitorStopBtn = document.getElementById('monitor-stop-btn');
 const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
 const monitorWindowHint = document.getElementById('monitor-window-hint');
 const monitorValidationMsg = document.getElementById('monitor-validation-msg');
 const scanGroupsBtn = document.getElementById('scan-groups-btn');
 const scanGroupsStatusEl = document.getElementById('scan-groups-status');
+const groupsScanningStateEl = document.getElementById('groups-scanning-state');
 const summaryKeywordsCountEl = document.getElementById('summary-keywords-count');
 const summaryGroupsCountEl = document.getElementById('summary-groups-count');
 const summaryLeadsCountEl = document.getElementById('summary-leads-count');
@@ -192,7 +192,22 @@ function switchToPanel(panelId) {
   }
 }
 
+function setScanningUI(scanning) {
+  if (groupsScanningStateEl) groupsScanningStateEl.hidden = !scanning;
+  if (scanGroupsBtn) {
+    scanGroupsBtn.disabled = scanning;
+    scanGroupsBtn.textContent = scanning ? 'Scanning…' : 'Scan my groups';
+  }
+  const card = scanGroupsBtn && scanGroupsBtn.closest('.card-groups');
+  if (card) card.classList.toggle('is-scanning', !!scanning);
+}
+
 function setScanGroupsStatus(state, extra) {
+  if (state === 'scanning') {
+    setScanningUI(true);
+  } else if (state === 'success' || state === 'error' || state === '') {
+    setScanningUI(false);
+  }
   if (!scanGroupsStatusEl) return;
   if (state === 'scanning') {
     scanGroupsStatusEl.textContent = 'Scanning your Facebook groups…';
@@ -303,9 +318,6 @@ function renderMonitorStatus(settings) {
 
   if (monitorStartBtn) {
     monitorStartBtn.disabled = count === 0 || enabled;
-  }
-  if (monitorStartBtnCard) {
-    monitorStartBtnCard.disabled = count === 0 || enabled;
   }
   if (monitorStopBtn) {
     monitorStopBtn.disabled = !enabled;
@@ -555,18 +567,20 @@ function renderDetectedGroups() {
   });
   detectedGroupsEl.innerHTML = list
     .map(
-      (g, index) =>
-        `<div class="group-row" data-index="${index}">
+      (g, index) => {
+        const tracked = isTracked(g.id);
+        return `<div class="group-row${tracked ? ' group-row--tracked' : ''}" data-index="${index}" role="button" tabindex="0" aria-pressed="${tracked}" aria-label="Toggle track ${escapeOpt(g.name || 'group')}">
           <div class="group-info">
             <div class="group-name">${escapeOpt(g.name || '')}</div>
             <div class="group-url"><a href="${escapeOpt(g.url || '#')}" target="_blank" rel="noopener">${escapeOpt(g.url || '')}</a></div>
             <div class="group-meta">Source: ${escapeOpt(g.source || '—')} · Last seen: ${formatOptDate(g.lastSeenAt)}</div>
           </div>
           <div class="track-option">
-            <input type="checkbox" id="track-${index}" ${isTracked(g.id) ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" />
-            <label for="track-${index}">Track</label>
+            <input type="checkbox" id="track-${index}" ${tracked ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" aria-hidden="true" tabindex="-1" />
+            <span class="track-option-label">Track</span>
           </div>
-        </div>`
+        </div>`;
+      }
     )
     .join('');
 
@@ -587,7 +601,35 @@ function renderDetectedGroups() {
       }
       await refreshMonitorStatus();
       updateSummaryCounts();
+      const row = cb.closest('.group-row');
+      if (row) {
+        row.classList.toggle('group-row--tracked', cb.checked);
+        row.setAttribute('aria-pressed', cb.checked ? 'true' : 'false');
+      }
     });
+  });
+}
+
+// Full-row click to toggle tracking (delegated)
+if (detectedGroupsEl) {
+  detectedGroupsEl.addEventListener('click', (e) => {
+    const row = e.target.closest('.group-row');
+    if (!row) return;
+    if (e.target.closest('a')) return;
+    const cb = row.querySelector('.track-option input[type="checkbox"]');
+    if (!cb) return;
+    if (e.target === cb) return;
+    e.preventDefault();
+    cb.click();
+  });
+  detectedGroupsEl.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.group-row');
+    if (!row || e.target.closest('a')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const cb = row.querySelector('.track-option input[type="checkbox"]');
+      if (cb) cb.click();
+    }
   });
 }
 
@@ -827,9 +869,6 @@ function handleStartMonitoring() {
 }
 if (monitorStartBtn) {
   monitorStartBtn.addEventListener('click', () => handleStartMonitoring());
-}
-if (monitorStartBtnCard) {
-  monitorStartBtnCard.addEventListener('click', () => handleStartMonitoring());
 }
 if (monitorStopBtn) {
   monitorStopBtn.addEventListener('click', async () => {
