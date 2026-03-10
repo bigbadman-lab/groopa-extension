@@ -11,8 +11,12 @@ const clearDemoBtn = document.getElementById('clear-demo-btn');
 const demoMessageEl = document.getElementById('demo-message');
 const detectedGroupsEl = document.getElementById('detected-groups');
 const inboxListEl = document.getElementById('inbox-list');
-const inboxListWrap = document.getElementById('inbox-list-wrap');
-const inboxDetailEl = document.getElementById('inbox-detail');
+const inboxEmptyStateEl = document.getElementById('inbox-empty-state');
+const inboxTwoPanelsEl = document.getElementById('inbox-two-panels');
+const inboxStatTotalEl = document.getElementById('inbox-stat-total');
+const inboxStatNewEl = document.getElementById('inbox-stat-new');
+const inboxDetailPlaceholderEl = document.getElementById('inbox-detail-placeholder');
+const inboxDetailContentEl = document.getElementById('inbox-detail-content');
 const inboxDetailBack = document.getElementById('inbox-detail-back');
 const inboxDetailGroup = document.getElementById('inbox-detail-group');
 const inboxDetailTime = document.getElementById('inbox-detail-time');
@@ -425,28 +429,65 @@ function formatOptDate(iso) {
   }
 }
 
+/**
+ * Update header stats (total and new count) and empty vs two-panel visibility.
+ */
+function updateInboxHeaderAndPanels() {
+  const list = detectionsList || [];
+  const total = list.length;
+  const newCount = list.filter((d) => d && d.status === 'new').length;
+  if (inboxStatTotalEl) inboxStatTotalEl.textContent = total === 1 ? '1 lead' : total + ' leads';
+  if (inboxStatNewEl) {
+    inboxStatNewEl.hidden = newCount === 0;
+    inboxStatNewEl.textContent = newCount > 0 ? newCount + ' new' : '';
+  }
+  if (inboxEmptyStateEl) inboxEmptyStateEl.hidden = total > 0;
+  if (inboxTwoPanelsEl) inboxTwoPanelsEl.hidden = total === 0;
+}
+
+/**
+ * Apply selected state to list rows (add/remove inbox-row--selected by fingerprint).
+ */
+function updateInboxRowSelection() {
+  if (!inboxListEl) return;
+  const fp = selectedInboxDetection && selectedInboxDetection.fingerprint ? selectedInboxDetection.fingerprint : '';
+  inboxListEl.querySelectorAll('.inbox-row-btn').forEach((btn) => {
+    btn.classList.toggle('inbox-row--selected', btn.dataset.fingerprint === fp);
+  });
+}
+
 function renderInbox() {
   if (!inboxListEl) return;
   const list = detectionsList.slice(0, 50);
+  updateInboxHeaderAndPanels();
+
   if (list.length === 0) {
-    inboxListEl.innerHTML = '<p class="inbox-empty">No leads yet. Add keywords and track groups to start.</p>';
+    inboxListEl.innerHTML = '';
+    selectedInboxDetection = null;
     return;
   }
-  const previewLen = 80;
+
+  const snippetLen = 72;
   inboxListEl.innerHTML = list
     .map((d, index) => {
       const groupLabel = escapeOpt(d.groupName || d.groupIdentifier || 'Group');
       const text = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
-      const preview = text.length > previewLen ? text.slice(0, previewLen) + '…' : text;
+      const snippet = text.length > snippetLen ? text.slice(0, snippetLen) + '…' : text;
       const keywordLabel = escapeOpt(d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : ''));
       const dateStr = formatOptDate(d.createdAt);
-      return `<button type="button" class="inbox-row inbox-row-btn" data-index="${index}">
-        <div class="inbox-row-main">
+      const relativeTime = formatRelativeTime(d.createdAt);
+      const isUnread = d.status === 'new';
+      const fp = (d.fingerprint != null ? String(d.fingerprint) : '') || 'idx-' + index;
+      const unreadClass = isUnread ? ' inbox-row--unread' : '';
+      return `<button type="button" class="inbox-row inbox-row-btn${unreadClass}" data-index="${index}" data-fingerprint="${escapeOpt(fp)}" role="listitem">
+        <div class="inbox-row-top">
           <span class="inbox-row-group">${groupLabel}</span>
-          <span class="inbox-row-keyword">${keywordLabel}</span>
-          <span class="inbox-row-date">${dateStr}</span>
+          <span class="inbox-row-date">${escapeOpt(relativeTime)}</span>
         </div>
-        <div class="inbox-row-preview">${escapeOpt(preview)}</div>
+        <div class="inbox-row-snippet">${escapeOpt(snippet)}</div>
+        <div class="inbox-row-meta">
+          <span class="inbox-row-keyword">${keywordLabel}</span>
+        </div>
       </button>`;
     })
     .join('');
@@ -455,35 +496,63 @@ function renderInbox() {
     btn.addEventListener('click', () => {
       const index = parseInt(btn.dataset.index, 10);
       const detection = detectionsList[index];
-      if (detection) showInboxDetail(detection);
+      if (detection) {
+        selectedInboxDetection = detection;
+        showInboxDetailContent(detection);
+        updateInboxRowSelection();
+      }
     });
   });
+
+  // If selection is no longer in list (e.g. after storage refresh), clear it
+  if (selectedInboxDetection && list.findIndex((d) => d.fingerprint === selectedInboxDetection.fingerprint) < 0) {
+    selectedInboxDetection = null;
+    if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
+    if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
+  }
+  // Auto-select first lead when none selected
+  if (list.length > 0 && !selectedInboxDetection) {
+    selectedInboxDetection = list[0];
+    showInboxDetailContent(list[0]);
+  }
+  updateInboxRowSelection();
 }
 
-function showInboxDetail(detection) {
-  selectedInboxDetection = detection;
+function showInboxDetailContent(detection) {
+  if (!detection) return;
   generatedReplyText = '';
   const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
   const text = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
   const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
   if (inboxDetailGroup) inboxDetailGroup.textContent = groupLabel;
   if (inboxDetailTime) inboxDetailTime.textContent = 'Detected ' + formatOptDate(detection.createdAt);
-  if (inboxDetailText) inboxDetailText.textContent = text || '—';
   if (inboxDetailKeywords) inboxDetailKeywords.textContent = 'Matched: ' + keywordLabel;
+  if (inboxDetailText) inboxDetailText.textContent = text || '—';
   if (inboxReplyTextEl) inboxReplyTextEl.textContent = 'Reply will appear here after you click Generate AI Reply.';
   if (inboxOpenPostLink) {
     inboxOpenPostLink.href = detection.pageUrl || '#';
     inboxOpenPostLink.style.display = detection.pageUrl ? 'inline-block' : 'none';
   }
-  if (inboxListEl) inboxListEl.hidden = true;
-  if (inboxDetailEl) inboxDetailEl.hidden = false;
+  if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = true;
+  if (inboxDetailContentEl) inboxDetailContentEl.hidden = false;
+}
+
+function showInboxDetail(detection) {
+  selectedInboxDetection = detection;
+  if (detection) showInboxDetailContent(detection);
+  else {
+    if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
+    if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
+  }
+  updateInboxRowSelection();
 }
 
 function showInboxList() {
   selectedInboxDetection = null;
   generatedReplyText = '';
-  if (inboxListEl) inboxListEl.hidden = false;
-  if (inboxDetailEl) inboxDetailEl.hidden = true;
+  if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
+  if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
+  updateInboxRowSelection();
 }
 
 if (inboxDetailBack) {

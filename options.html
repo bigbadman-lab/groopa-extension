@@ -111,30 +111,46 @@
       </section>
 
       <section id="panel-inbox" class="panel">
-        <div class="page-header">
-          <h2 class="page-title">Inbox</h2>
-          <p class="page-desc">Recent leads from tracked groups. Click a lead to view details and generate a reply.</p>
+        <div class="inbox-page-header">
+          <h2 class="inbox-page-title">Inbox</h2>
+          <p class="inbox-page-desc">Leads from your tracked groups. Click a lead to view details.</p>
+          <div class="inbox-header-stats" id="inbox-header-stats" aria-live="polite">
+            <span class="inbox-stat-total" id="inbox-stat-total">0 leads</span>
+            <span class="inbox-stat-new" id="inbox-stat-new" hidden></span>
+          </div>
         </div>
-        <div class="card card-inbox card-pinned">
-          <h3 class="card-title card-title-pinned">
-            <span class="card-title-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8"/><circle cx="12" cy="5" r="3"/></svg></span>
-            Leads
-          </h3>
-          <div id="inbox-list-wrap">
-            <div id="inbox-list" class="inbox-list"></div>
-            <div id="inbox-detail" class="inbox-detail" hidden>
-              <button type="button" id="inbox-detail-back" class="btn-link inbox-back">&#8592; Back to list</button>
-              <p class="inbox-detail-group" id="inbox-detail-group"></p>
-              <p class="inbox-detail-time" id="inbox-detail-time"></p>
-              <div class="inbox-detail-post" id="inbox-detail-text"></div>
-              <p class="inbox-detail-keywords" id="inbox-detail-keywords"></p>
-              <button type="button" id="inbox-detail-ai-btn" class="btn btn-primary">Generate AI Reply</button>
-              <div class="inbox-reply-section">
-                <label class="inbox-reply-label">Generated reply</label>
-                <div id="inbox-reply-text" class="inbox-reply-text" aria-readonly="true">Reply will appear here after you click Generate AI Reply.</div>
-                <div class="inbox-reply-actions">
-                  <button type="button" id="inbox-copy-reply" class="btn btn-secondary">Copy Reply</button>
+        <div class="inbox-layout" id="inbox-layout">
+          <div class="inbox-empty-state" id="inbox-empty-state" hidden>
+            <div class="inbox-empty-icon" aria-hidden="true">📬</div>
+            <h3 class="inbox-empty-title">No leads yet</h3>
+            <p class="inbox-empty-text">Matched posts from your tracked groups will appear here once monitoring is running. Add keywords and track groups, then start the monitor.</p>
+          </div>
+          <div class="inbox-two-panels" id="inbox-two-panels" hidden>
+            <div class="inbox-list-panel">
+              <div id="inbox-list" class="inbox-list" role="list"></div>
+            </div>
+            <div class="inbox-detail-panel">
+              <div class="inbox-detail-placeholder" id="inbox-detail-placeholder">
+                <p class="inbox-detail-placeholder-text">Select a lead from the list</p>
+              </div>
+              <div class="inbox-detail-content" id="inbox-detail-content" hidden>
+                <button type="button" id="inbox-detail-back" class="btn-link inbox-back">&#8592; Back to list</button>
+                <div class="inbox-detail-meta">
+                  <p class="inbox-detail-group" id="inbox-detail-group"></p>
+                  <p class="inbox-detail-time" id="inbox-detail-time"></p>
+                  <p class="inbox-detail-keywords" id="inbox-detail-keywords"></p>
+                </div>
+                <div class="inbox-detail-post" id="inbox-detail-text"></div>
+                <div class="inbox-detail-actions">
+                  <button type="button" id="inbox-detail-ai-btn" class="btn btn-primary">Generate AI Reply</button>
                   <a id="inbox-open-post" href="#" target="_blank" rel="noopener" class="btn btn-secondary inbox-open-link">Open Facebook Post</a>
+                </div>
+                <div class="inbox-reply-section">
+                  <label class="inbox-reply-label">Generated reply</label>
+                  <div id="inbox-reply-text" class="inbox-reply-text" aria-readonly="true">Reply will appear here after you click Generate AI Reply.</div>
+                  <div class="inbox-reply-actions">
+                    <button type="button" id="inbox-copy-reply" class="btn btn-secondary">Copy Reply</button>
+                  </div>
                 </div>
               </div>
             </div>

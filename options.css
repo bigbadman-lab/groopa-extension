@@ -587,26 +587,98 @@ body {
   line-height: 1.45;
 }
 
-/* Inbox (compact list in Monitoring) */
+/* Inbox page — Gmail-style two-panel layout */
+.inbox-page-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.inbox-page-title {
+  margin: 0 0 4px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.inbox-page-desc {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.inbox-header-stats {
+  font-size: 13px;
+  color: #666;
+}
+
+.inbox-stat-total {
+  font-weight: 500;
+  color: #333;
+}
+
+.inbox-stat-new {
+  margin-left: 10px;
+  color: #1877f2;
+  font-weight: 500;
+}
+
+.inbox-layout {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.inbox-empty-state {
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.inbox-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.inbox-empty-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.inbox-empty-text {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.inbox-two-panels {
+  display: flex;
+  min-height: 420px;
+}
+
+.inbox-list-panel {
+  width: 38%;
+  min-width: 260px;
+  border-right: 1px solid #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .inbox-list {
   margin: 0;
-  max-height: 320px;
+  padding: 0;
   overflow-y: auto;
-}
-
-.inbox-empty {
-  font-size: 13px;
-  color: #888;
-  padding: 14px 0;
-  margin: 0;
-}
-
-.inbox-row {
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: #f8f8f8;
-  border-radius: 8px;
-  border: 1px solid #eee;
+  flex: 1;
 }
 
 .inbox-row-btn {
@@ -616,81 +688,99 @@ body {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  background: #f8f8f8;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid #eee;
+  padding: 12px 14px;
+  transition: background 0.12s;
 }
 
 .inbox-row-btn:hover {
-  background: #eee;
-  border-color: #ddd;
+  background: #f5f5f5;
 }
 
-.inbox-row-btn:last-child {
-  margin-bottom: 0;
+.inbox-row-btn.inbox-row--selected {
+  background: #e8eeff;
+  border-left: 3px solid #1877f2;
+  padding-left: 11px;
 }
 
-.inbox-row:last-child {
-  margin-bottom: 0;
-}
-
-.inbox-row-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin-bottom: 6px;
-}
-
-.inbox-row-group {
+.inbox-row-btn.inbox-row--unread .inbox-row-group {
   font-weight: 600;
-  font-size: 13px;
+}
+
+.inbox-row-btn.inbox-row--unread .inbox-row-snippet {
   color: #1a1a1a;
 }
 
-.inbox-row-keyword {
-  font-size: 12px;
-  color: #1877f2;
+.inbox-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.inbox-row-group {
+  font-size: 13px;
   font-weight: 500;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .inbox-row-date {
   font-size: 11px;
-  color: #666;
+  color: #888;
+  flex-shrink: 0;
 }
 
-.inbox-row-preview {
-  font-size: 12px;
+.inbox-row-snippet {
+  font-size: 13px;
   color: #555;
   line-height: 1.4;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.inbox-row-actions {
-  margin-top: 4px;
-}
-
-.inbox-row-open {
+.inbox-row-meta {
   font-size: 12px;
+  color: #888;
+}
+
+.inbox-row-keyword {
   color: #1877f2;
-  text-decoration: none;
+  font-weight: 500;
 }
 
-.inbox-row-open:hover {
-  text-decoration: underline;
+.inbox-detail-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: #fafafa;
 }
 
-/* Inbox detail view */
-.inbox-detail {
-  padding-top: 0;
+.inbox-detail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
 }
 
-.inbox-back {
+.inbox-detail-placeholder-text {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+}
+
+.inbox-detail-content .inbox-back {
   display: inline-block;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-size: 13px;
   color: #1877f2;
   background: none;
@@ -699,49 +789,60 @@ body {
   padding: 0;
 }
 
-.inbox-back:hover {
+.inbox-detail-content .inbox-back:hover {
   text-decoration: underline;
+}
+
+.inbox-detail-meta {
+  margin-bottom: 14px;
 }
 
 .inbox-detail-group {
   margin: 0 0 4px 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
 }
 
 .inbox-detail-time {
-  margin: 0 0 12px 0;
+  margin: 0 0 4px 0;
   font-size: 12px;
   color: #666;
 }
 
-.inbox-detail-post {
-  margin: 0 0 12px 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #333;
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  max-height: 160px;
-  overflow-y: auto;
-}
-
 .inbox-detail-keywords {
-  margin: 0 0 14px 0;
+  margin: 0 0 12px 0;
   font-size: 13px;
   color: #1877f2;
   font-weight: 500;
 }
 
+.inbox-detail-post {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 14px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.inbox-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
 .inbox-reply-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e5e5e5;
 }
 
 .inbox-reply-label {
@@ -758,8 +859,8 @@ body {
   font-size: 13px;
   line-height: 1.5;
   color: #333;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: #fff;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
   min-height: 80px;
   white-space: pre-wrap;
