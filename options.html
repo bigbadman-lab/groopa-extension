@@ -26,11 +26,15 @@
       <section id="panel-monitoring" class="panel panel--active">
         <div class="monitoring-hero">
           <header class="welcome-header">
-            <h2 class="welcome-title">Welcome to Groopa 👋</h2>
-            <p class="welcome-desc">Groopa monitors your tracked Facebook groups and alerts you when new opportunities appear.</p>
+            <h2 class="welcome-title">Dashboard</h2>
+            <p class="welcome-desc">Monitor your tracked Facebook groups and get alerted when new opportunities match your keywords.</p>
+            <div class="hero-actions hero-actions--primary">
+              <button type="button" id="monitor-start-btn" class="btn btn-primary">Start Monitoring</button>
+              <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
+            </div>
             <nav class="welcome-links" aria-label="Helpful links">
-              <a href="https://groopa.com/support" target="_blank" rel="noopener noreferrer" class="welcome-link">Customer Support</a>
-              <a href="https://groopa.com/blog" target="_blank" rel="noopener noreferrer" class="welcome-link">Latest Blog / Tips</a>
+              <a href="https://groopa.com/support" target="_blank" rel="noopener noreferrer" class="welcome-link">Support</a>
+              <a href="https://groopa.com/blog" target="_blank" rel="noopener noreferrer" class="welcome-link">Blog</a>
             </nav>
           </header>
           <div class="monitoring-hero-stats">
@@ -48,34 +52,31 @@
                 <span class="summary-card-count" id="summary-leads-count">0</span>
               </div>
             </div>
-            <div class="summary-actions">
-              <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
-            </div>
           </div>
         </div>
 
         <div class="card card-monitor">
-          <h3 class="card-title">Groopa Monitor</h3>
-          <p class="card-hint">One dedicated window with a single tab that rotates through your tracked groups every 30 seconds. Stay logged into Facebook in Chrome.</p>
+          <h3 class="card-title">Monitor status</h3>
+          <p class="card-hint card-hint--brief">A dedicated window rotates through your tracked groups. Keep Chrome logged into Facebook.</p>
           <div id="monitor-validation-msg" class="monitor-validation-msg" hidden>
-            <p class="monitor-validation-title">Add a group before starting monitoring</p>
-            <p class="monitor-validation-body">Groopa needs at least one tracked Facebook group before monitoring can begin. Visit a group on Facebook so Groopa can detect it, or add one manually.</p>
+            <p class="monitor-validation-title">Add a group before starting</p>
+            <p class="monitor-validation-body">Track at least one Facebook group below, then start monitoring from the dashboard.</p>
           </div>
           <div class="monitor-status-wrap">
             <p class="monitor-status" id="monitor-status-text">—</p>
             <p class="monitor-meta" id="monitor-meta">—</p>
           </div>
-          <p class="monitor-window-hint" id="monitor-window-hint">Start monitoring to launch your Groopa monitor window.</p>
+          <p class="monitor-window-hint" id="monitor-window-hint">Start monitoring above to launch the monitor window.</p>
           <div class="button-row">
-            <button type="button" id="monitor-start-btn" class="btn btn-primary">Start Monitoring</button>
+            <button type="button" id="monitor-start-btn-card" class="btn btn-primary btn-sm">Start Monitoring</button>
             <button type="button" id="monitor-stop-btn" class="btn btn-secondary">Stop Monitoring</button>
             <button type="button" id="monitor-open-window-btn" class="btn btn-secondary">Open Monitor Window</button>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card card-keywords">
           <h3 class="card-title">Tracked keywords</h3>
-          <p class="card-hint">When a post in a tracked group contains one of these keywords, Groopa will create a lead in your inbox.</p>
+          <p class="card-hint card-hint--brief">Posts containing these keywords in tracked groups become leads in your inbox.</p>
           <div class="keywords-add-row">
             <input type="text" id="keyword-input" class="keyword-input" placeholder="Add a keyword…" />
             <button type="button" id="keyword-add-btn" class="btn btn-primary">Add</button>
@@ -83,8 +84,8 @@
           <div id="keywords-list" class="keywords-list"></div>
           <p id="keywords-empty" class="keywords-empty">No keywords yet. Add one above.</p>
           <div id="suggested-keywords-wrap" class="suggested-keywords-wrap" hidden>
-            <h4 class="suggested-keywords-title">Suggested related keywords</h4>
-            <p class="suggested-keywords-hint">Based on the keyword you added. Add any that match how people ask in your groups.</p>
+            <h4 class="suggested-keywords-title">Suggested keywords</h4>
+            <p class="suggested-keywords-hint">Based on your keyword. Add any that match how people ask in your groups.</p>
             <div class="suggested-keywords-actions">
               <button type="button" id="suggested-add-all-btn" class="btn btn-secondary btn-sm">Add all</button>
             </div>
@@ -92,23 +93,22 @@
           </div>
         </div>
 
-        <div class="card">
-          <h3 class="card-title">Detected Facebook Groups</h3>
-          <p class="card-hint">Groopa automatically detects groups as you browse Facebook. Visit group pages and they’ll appear here—then click Track to monitor them.</p>
-          <p class="card-hint">Groopa can scan Facebook and find groups you already belong to.</p>
-          <div class="button-row">
-            <button type="button" id="scan-groups-btn" class="btn btn-secondary btn-sm">Scan my groups</button>
+        <div class="card card-groups">
+          <h3 class="card-title">Facebook groups</h3>
+          <p class="card-hint card-hint--brief">Scan to find groups you belong to, or add by URL below. Track groups to include them in monitoring.</p>
+          <div class="groups-scan-row">
+            <button type="button" id="scan-groups-btn" class="btn btn-primary btn-sm">Scan my groups</button>
             <span id="scan-groups-status" class="scan-status-text"></span>
           </div>
-          <div class="groups-list-scroll">
+          <div class="groups-list-scroll groups-list-scroll--compact" id="detected-groups-scroll">
             <div id="detected-groups" class="groups-list"></div>
           </div>
-        </div>
-        <div class="card">
-          <h3 class="card-title">Can’t find your group?</h3>
-          <p class="card-hint">Add a group by URL if you already have the link.</p>
-          <button type="button" id="add-manually-btn" class="btn btn-secondary btn-sm">Add manually</button>
-          <div id="add-group-form" class="add-group-form" hidden>
+          </div>
+          <div class="card-sub manual-add-block">
+            <h4 class="card-subtitle">Can't find your group?</h4>
+            <p class="card-hint card-hint--brief">Add a group by pasting its Facebook URL.</p>
+            <button type="button" id="add-manually-btn" class="btn btn-secondary btn-sm">Add by URL</button>
+            <div id="add-group-form" class="add-group-form" hidden>
             <div class="add-group-row">
               <input type="text" id="add-group-url" class="keyword-input" placeholder="https://www.facebook.com/groups/..." />
               <button type="button" id="add-group-btn" class="btn btn-primary">Add Group</button>
@@ -117,6 +117,7 @@
               <button type="button" id="add-group-cancel" class="btn btn-secondary">Cancel</button>
             </div>
             <p id="add-group-error" class="add-group-error" aria-live="polite"></p>
+            </div>
           </div>
         </div>
       </section>

@@ -124,19 +124,31 @@ body {
 }
 
 .welcome-title {
-  margin: 0 0 10px 0;
-  font-size: 26px;
+  margin: 0 0 8px 0;
+  font-size: 22px;
   font-weight: 700;
   color: #1a1a1a;
   letter-spacing: -0.02em;
 }
 
 .welcome-desc {
-  margin: 0 0 16px 0;
-  font-size: 15px;
+  margin: 0 0 14px 0;
+  font-size: 14px;
   color: #555;
   line-height: 1.5;
-  max-width: 520px;
+  max-width: 480px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.hero-actions--primary .btn-primary {
+  font-weight: 600;
 }
 
 .welcome-links {
@@ -201,13 +213,17 @@ body {
   min-width: 0;
 }
 
-.monitoring-hero-stats .summary-card-count {
-  font-size: 20px;
+.monitoring-hero-stats .summary-card-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.monitoring-hero-stats .summary-actions {
-  margin-bottom: 0;
-  width: 100%;
+.monitoring-hero-stats .summary-card-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 @media (max-width: 768px) {
@@ -308,6 +324,10 @@ body {
   line-height: 1.45;
 }
 
+.card-hint--brief {
+  margin-bottom: 12px;
+}
+
 /* Pinned Inbox card — primary working area */
 .card-pinned {
   border-left: 4px solid #1877f2;
@@ -331,7 +351,11 @@ body {
   display: block;
 }
 
-/* Groopa Monitor card */
+/* Monitor card: status-focused */
+.card-monitor .card-hint--brief {
+  margin-bottom: 12px;
+}
+
 .monitor-status-wrap {
   margin: 0 0 16px 0;
 }
@@ -601,7 +625,19 @@ body {
   color: #333;
 }
 
-/* Groups list */
+/* Groups: scan row and list */
+.groups-scan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.groups-scan-row .scan-status-text {
+  font-size: 13px;
+  color: #666;
+}
+
 .groups-list-scroll {
   max-height: 280px;
   overflow-y: auto;
@@ -610,6 +646,11 @@ body {
   border: 1px solid #eee;
   border-radius: 10px;
   background: #fafafa;
+}
+
+.groups-list-scroll--compact {
+  min-height: 0;
+  max-height: 240px;
 }
 
 .groups-list {
@@ -711,6 +752,24 @@ body {
   font-size: 12px;
   color: #888;
   line-height: 1.45;
+}
+
+/* Subsection inside card (e.g. manual add inside groups card) */
+.card-sub {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.card-subtitle {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.manual-add-block .card-hint--brief {
+  margin-bottom: 10px;
 }
 
 /* Inbox page — Gmail-style two-panel layout */

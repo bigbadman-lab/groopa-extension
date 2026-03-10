@@ -41,6 +41,7 @@ const sidebarVersionEl = document.getElementById('sidebar-version');
 const monitorStatusText = document.getElementById('monitor-status-text');
 const monitorMeta = document.getElementById('monitor-meta');
 const monitorStartBtn = document.getElementById('monitor-start-btn');
+const monitorStartBtnCard = document.getElementById('monitor-start-btn-card');
 const monitorStopBtn = document.getElementById('monitor-stop-btn');
 const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
 const monitorWindowHint = document.getElementById('monitor-window-hint');
@@ -303,6 +304,9 @@ function renderMonitorStatus(settings) {
   if (monitorStartBtn) {
     monitorStartBtn.disabled = count === 0 || enabled;
   }
+  if (monitorStartBtnCard) {
+    monitorStartBtnCard.disabled = count === 0 || enabled;
+  }
   if (monitorStopBtn) {
     monitorStopBtn.disabled = !enabled;
   }
@@ -532,11 +536,7 @@ function isTracked(groupId) {
 
 function renderDetectedGroups() {
   if (detectedGroupsList.length === 0) {
-    detectedGroupsEl.innerHTML =
-      '<div class="groups-empty-wrap">' +
-      '<p class="groups-empty-title">No groups detected yet.</p>' +
-      '<p class="groups-empty-hint">Visit Facebook groups you are already a member of, or join new ones, and Groopa will detect them here.</p>' +
-      '</div>';
+    detectedGroupsEl.innerHTML = '';
     return;
   }
   function formatOptDate(iso) {
@@ -797,8 +797,8 @@ clearDemoBtn.addEventListener('click', async () => {
   showDemoMessage('Demo data cleared.');
 });
 
-if (monitorStartBtn) {
-  monitorStartBtn.addEventListener('click', async () => {
+function handleStartMonitoring() {
+  return (async () => {
     const settings = await getSettings();
     const tracked = Array.isArray(settings.trackedGroups) ? settings.trackedGroups : [];
     if (tracked.length === 0) {
@@ -823,7 +823,13 @@ if (monitorStartBtn) {
         monitorValidationMsg.hidden = false;
       }
     }
-  });
+  })();
+}
+if (monitorStartBtn) {
+  monitorStartBtn.addEventListener('click', () => handleStartMonitoring());
+}
+if (monitorStartBtnCard) {
+  monitorStartBtnCard.addEventListener('click', () => handleStartMonitoring());
 }
 if (monitorStopBtn) {
   monitorStopBtn.addEventListener('click', async () => {
