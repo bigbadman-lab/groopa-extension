@@ -70,6 +70,10 @@ function tabUrlMatchesTrackedGroup(tabUrl, trackedGroups) {
 const SCAN_HEARTBEAT_ALARM_NAME = 'groopa-scan-heartbeat';
 const SCAN_HEARTBEAT_INTERVAL_MINUTES = 0.5; // 30 seconds (one-shot reschedule; Chrome min period is 1 min)
 
+// Simple membership scan state (one at a time) and target URL
+const FACEBOOK_GROUPS_LISTING_URL = 'https://www.facebook.com/groups/feed/';
+let membershipScanInProgress = false;
+
 function scheduleScanHeartbeat() {
   chrome.alarms.create(SCAN_HEARTBEAT_ALARM_NAME, { delayInMinutes: SCAN_HEARTBEAT_INTERVAL_MINUTES });
 }
@@ -509,6 +513,95 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } catch (err) {
         console.error('[Groopa] MARK_DETECTION_OPENED error', err);
         sendResponse({ error: String(err.message) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'START_GROUP_MEMBERSHIP_SCAN') {
+    (async () => {
+      try {
+        if (membershipScanInProgress) {
+          sendResponse({ ok: false, error: 'A scan is already running. Please wait a moment.' });
+          return;
+        }
+        membershipScanInProgress = true;
+        // Acknowledge that the scan has started; the final result will be sent via GROUP_MEMBERSHIP_SCAN_COMPLETED.
+        sendResponse({ ok: true });
+
+        // Open or focus a Facebook tab on the groups listing page
+        const fbGroupsUrl = FACEBOOK_GROUPS_LISTING_URL;
+        let tabId = null;
+        const fbTabs = await chrome.tabs.query({ url: '*://*.facebook.com/*' });
+        if (fbTabs && fbTabs.length > 0) {
+          tabId = fbTabs[0].id;
+          await chrome.tabs.update(tabId, { active: true, url: fbGroupsUrl });
+        } else {
+          const created = await chrome.tabs.create({ url: fbGroupsUrl, active: true });
+          tabId = created && created.id != null ? created.id : null;
+        }
+
+        if (tabId == null) {
+          membershipScanInProgress = false;
+          chrome.runtime.sendMessage({
+            type: 'GROUP_MEMBERSHIP_SCAN_COMPLETED',
+            count: 0,
+            error: 'Could not open Facebook. Please make sure Chrome can open new tabs.',
+          });
+          return;
+        }
+
+        // Give the page a few seconds to load before asking the content script to scan
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        const result = await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tabId, { type: 'RUN_GROUP_MEMBERSHIP_SCAN' }, (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ ok: false, error: chrome.runtime.lastError.message });
+            } else {
+              resolve(response);
+            }
+          });
+        });
+
+        let count = 0;
+        let error = null;
+
+        if (!result || result.ok === false || !Array.isArray(result.groups)) {
+          error =
+            (result && result.error) ||
+            'Could not read your groups on this page. Please make sure you are logged into Facebook.';
+        } else {
+          const now = new Date().toISOString();
+          const groups = result.groups;
+          count = groups.length;
+          for (let i = 0; i < groups.length; i++) {
+            const g = groups[i];
+            if (!g || !g.url) continue;
+            await upsertDetectedGroup({
+              id: g.id,
+              name: g.name || '',
+              url: g.url,
+              source: 'membership_scan',
+              lastSeenAt: now,
+            });
+          }
+        }
+
+        membershipScanInProgress = false;
+        chrome.runtime.sendMessage({
+          type: 'GROUP_MEMBERSHIP_SCAN_COMPLETED',
+          count: count,
+          error: error,
+        });
+      } catch (err) {
+        membershipScanInProgress = false;
+        console.error('[Groopa] START_GROUP_MEMBERSHIP_SCAN error', err);
+        chrome.runtime.sendMessage({
+          type: 'GROUP_MEMBERSHIP_SCAN_COMPLETED',
+          count: 0,
+          error: 'Something went wrong while scanning your groups. Please try again.',
+        });
       }
     })();
     return true;

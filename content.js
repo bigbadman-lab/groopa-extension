@@ -60,9 +60,6 @@
     }
   );
 
-  // ----- Visible post candidate detection (group pages only, with retries) -----
-  if (!context.isGroupPage) return;
-
   /**
    * Safely check whether the extension context is still valid.
    * Content scripts can become stale after extension reload/update; delayed callbacks
@@ -75,6 +72,78 @@
       return false;
     }
   }
+
+  // ----- Membership scan: discover joined Facebook groups on listing pages -----
+
+  /**
+   * Scan the current Facebook page for group links the user appears to belong to.
+   * Looks for anchors with /groups/<segment> in the path, builds a simple list of
+   * { id?, name, url, sourceUrl } objects, and dedupes by id or canonical URL.
+   * This does NOT track groups; it only discovers them for the settings page.
+   */
+  function scanJoinedFacebookGroups() {
+    if (!isExtensionContextValid()) return [];
+    const anchors = document.querySelectorAll('a[href*="/groups/"]');
+    const byKey = {};
+
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
+      const rawHref = a.getAttribute('href') || '';
+      if (!rawHref) continue;
+      let absUrl = '';
+      try {
+        absUrl = new URL(rawHref, window.location.href).toString();
+      } catch (_) {
+        continue;
+      }
+      let u;
+      try {
+        u = new URL(absUrl);
+      } catch (_) {
+        continue;
+      }
+      if (u.hostname.indexOf('facebook.com') === -1) continue;
+      const match = u.pathname.match(/\/groups\/([^/]+)/i);
+      if (!match) continue;
+      const segment = match[1];
+      if (!segment) continue;
+      const segLower = segment.toLowerCase();
+      // Skip non-membership pages like /groups/feed, /groups/discover, /groups/create
+      if (segLower === 'feed' || segLower === 'discover' || segLower === 'create') continue;
+
+      const canonicalUrl = 'https://www.facebook.com/groups/' + segment;
+      const id = /^[0-9]+$/.test(segment) ? segment : undefined;
+      const name = (a.textContent || '').trim();
+      if (!name) continue;
+
+      const key = id ? 'id:' + id : 'url:' + canonicalUrl.toLowerCase();
+      if (!byKey[key]) {
+        byKey[key] = {
+          id: id,
+          name: name,
+          url: canonicalUrl,
+          sourceUrl: window.location.href,
+        };
+      }
+    }
+
+    return Object.keys(byKey).map(function (k) {
+      return byKey[k];
+    });
+  }
+
+  chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+    if (!isExtensionContextValid()) return false;
+    if (message && message.type === 'RUN_GROUP_MEMBERSHIP_SCAN') {
+      const groups = scanJoinedFacebookGroups();
+      sendResponse({ ok: true, groups: groups });
+      return true;
+    }
+    return false;
+  });
+
+  // ----- Visible post candidate detection (group pages only, with retries) -----
+  if (!context.isGroupPage) return;
 
   const MAX_PREVIEW_LEN = 150;
   const MAX_CANDIDATES = 10;

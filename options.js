@@ -38,6 +38,13 @@ const monitorStopBtn = document.getElementById('monitor-stop-btn');
 const monitorOpenWindowBtn = document.getElementById('monitor-open-window-btn');
 const monitorWindowHint = document.getElementById('monitor-window-hint');
 const monitorValidationMsg = document.getElementById('monitor-validation-msg');
+const scanGroupsBtn = document.getElementById('scan-groups-btn');
+const scanGroupsStatusEl = document.getElementById('scan-groups-status');
+const summaryKeywordsCountEl = document.getElementById('summary-keywords-count');
+const summaryGroupsCountEl = document.getElementById('summary-groups-count');
+const summaryLeadsCountEl = document.getElementById('summary-leads-count');
+const summaryLeadsCardEl = document.getElementById('summary-leads');
+const openInboxBtn = document.getElementById('open-inbox-btn');
 
 let detectedGroupsList = [];
 let trackedGroupsList = [];
@@ -45,6 +52,7 @@ let keywordList = [];
 let detectionsList = [];
 let selectedInboxDetection = null;
 let generatedReplyText = '';
+let isScanningGroups = false;
 
 const DEMO_NOW = new Date().toISOString();
 const DEMO_DETECTED_GROUPS = [
@@ -84,6 +92,52 @@ function parseFacebookGroupUrl(input) {
   return { slug, url: normalizedUrl };
 }
 
+/**
+ * Update the dashboard summary counts (Keywords, Groups, Leads) from current in-memory state.
+ * Called on load and whenever storage or in-page actions change these counts.
+ */
+function updateSummaryCounts() {
+  const keywords = typeof keywordList !== 'undefined' && Array.isArray(keywordList) ? keywordList.length : 0;
+  const groups = typeof trackedGroupsList !== 'undefined' && Array.isArray(trackedGroupsList) ? trackedGroupsList.length : 0;
+  const leads = typeof detectionsList !== 'undefined' && Array.isArray(detectionsList) ? detectionsList.length : 0;
+  if (summaryKeywordsCountEl) summaryKeywordsCountEl.textContent = String(keywords);
+  if (summaryGroupsCountEl) summaryGroupsCountEl.textContent = String(groups);
+  if (summaryLeadsCountEl) summaryLeadsCountEl.textContent = String(leads);
+}
+
+/**
+ * Switch the settings view to a panel by id (e.g. 'monitoring', 'inbox').
+ * Updates sidebar active state and panel visibility.
+ */
+function switchToPanel(panelId) {
+  if (!panelId) return;
+  document.querySelectorAll('.nav-item').forEach((b) => {
+    b.classList.toggle('nav-item--active', b.dataset.panel === panelId);
+  });
+  document.querySelectorAll('.panel').forEach((p) => {
+    p.classList.toggle('panel--active', p.id === 'panel-' + panelId);
+  });
+  if (panelId === 'inbox') {
+    try {
+      chrome.runtime.sendMessage({ type: 'INBOX_OPENED' });
+    } catch (_) {}
+  }
+}
+
+function setScanGroupsStatus(state, extra) {
+  if (!scanGroupsStatusEl) return;
+  if (state === 'scanning') {
+    scanGroupsStatusEl.textContent = 'Scanning your Facebook groups...';
+  } else if (state === 'success') {
+    const count = typeof extra === 'number' ? extra : 0;
+    scanGroupsStatusEl.textContent = 'Found ' + count + ' group' + (count === 1 ? '' : 's');
+  } else if (state === 'error') {
+    scanGroupsStatusEl.textContent = extra || 'Could not scan your groups. Please make sure you are logged into Facebook.';
+  } else {
+    scanGroupsStatusEl.textContent = '';
+  }
+}
+
 async function loadPage() {
   const settings = await getSettings();
   paidCheckbox.checked = settings.isPaidUser;
@@ -95,6 +149,7 @@ async function loadPage() {
   renderKeywords();
   renderDetectedGroups();
   await refreshInboxFromStorage();
+  updateSummaryCounts();
   renderMonitorStatus(settings);
   updateAccountPanel(settings.isPaidUser);
 
@@ -108,9 +163,7 @@ async function loadPage() {
     if (sidebarVersionEl) sidebarVersionEl.textContent = 'v0.1.0';
   }
 
-  try {
-    chrome.runtime.sendMessage({ type: 'INBOX_OPENED' });
-  } catch (_) {}
+  // INBOX_OPENED is sent when the user opens the Inbox panel (see switchToPanel) or the popup
 }
 
 function updateAccountPanel(isPaidUser) {
@@ -215,6 +268,7 @@ function renderKeywords() {
       keywordList = keywordList.filter((_, i) => i !== index);
       await saveSettings({ keywords: keywordList });
       renderKeywords();
+      updateSummaryCounts();
     });
   });
 }
@@ -276,6 +330,7 @@ if (keywordAddBtn && keywordInput) {
     keywordList.push(raw);
     await saveSettings({ keywords: keywordList });
     renderKeywords();
+    updateSummaryCounts();
     keywordInput.value = '';
   });
   keywordInput.addEventListener('keydown', (e) => {
@@ -317,7 +372,12 @@ function renderDetectedGroups() {
       return iso;
     }
   }
-  detectedGroupsEl.innerHTML = detectedGroupsList
+  const list = detectedGroupsList.slice().sort((a, b) => {
+    const aTime = a && a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+    const bTime = b && b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+    return bTime - aTime;
+  });
+  detectedGroupsEl.innerHTML = list
     .map(
       (g, index) =>
         `<div class="group-row" data-index="${index}">
@@ -350,6 +410,7 @@ function renderDetectedGroups() {
         await saveTrackedGroups(trackedGroupsList);
       }
       await refreshMonitorStatus();
+      updateSummaryCounts();
     });
   });
 }
@@ -471,6 +532,7 @@ loadDemoBtn.addEventListener('click', async () => {
   detectionsList = DEMO_DETECTIONS.slice();
   renderDetectedGroups();
   renderInbox();
+  updateSummaryCounts();
   await refreshMonitorStatus();
   showDemoMessage('Demo data loaded. Open the popup to see it.');
 });
@@ -482,6 +544,7 @@ clearDemoBtn.addEventListener('click', async () => {
   await clearDemoData();
   renderDetectedGroups();
   renderInbox();
+  updateSummaryCounts();
   await refreshMonitorStatus();
   showDemoMessage('Demo data cleared.');
 });
@@ -534,18 +597,28 @@ if (monitorOpenWindowBtn) {
   });
 }
 
-// Sidebar navigation
+// Sidebar navigation: switch panel and optionally notify (e.g. INBOX_OPENED when opening Inbox)
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.addEventListener('click', () => {
     const panelId = btn.dataset.panel;
     if (!panelId) return;
-    document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('nav-item--active'));
-    btn.classList.add('nav-item--active');
-    document.querySelectorAll('.panel').forEach((p) => {
-      p.classList.toggle('panel--active', p.id === 'panel-' + panelId);
-    });
+    switchToPanel(panelId);
   });
 });
+
+// One-click open Inbox from Monitoring: Leads card and Open Inbox button
+if (summaryLeadsCardEl) {
+  summaryLeadsCardEl.addEventListener('click', () => switchToPanel('inbox'));
+  summaryLeadsCardEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      switchToPanel('inbox');
+    }
+  });
+}
+if (openInboxBtn) {
+  openInboxBtn.addEventListener('click', () => switchToPanel('inbox'));
+}
 
 /**
  * Reload detections from storage and re-render the inbox. Used on initial load and when storage changes.
@@ -554,12 +627,33 @@ async function refreshInboxFromStorage() {
   const list = await getDetections();
   detectionsList = Array.isArray(list) ? list.slice() : [];
   renderInbox();
+  updateSummaryCounts();
 }
 
-// When detections change in storage (e.g. new leads from background), update the inbox without refresh
+// When storage changes, update the UI and summary counts without full page refresh
 chrome.storage.onChanged.addListener(function (changes, areaName) {
-  if (areaName !== 'local' || !changes || !changes.detections) return;
-  refreshInboxFromStorage();
+  if (!changes) return;
+  if (areaName === 'local') {
+    if (changes.detections) {
+      refreshInboxFromStorage();
+    }
+    if (changes.detectedGroups) {
+      const value = changes.detectedGroups.newValue;
+      detectedGroupsList = Array.isArray(value) ? value.slice() : [];
+      renderDetectedGroups();
+    }
+    if (changes.trackedGroups) {
+      const value = changes.trackedGroups.newValue;
+      trackedGroupsList = Array.isArray(value) ? value.slice() : [];
+      updateSummaryCounts();
+    }
+  }
+  if (areaName === 'sync' && changes.keywords) {
+    const value = changes.keywords.newValue;
+    keywordList = Array.isArray(value) ? value.slice() : [];
+    renderKeywords();
+    updateSummaryCounts();
+  }
 });
 
 // Refresh monitor section (e.g. "Last run: 2 min ago") every 8s so relative time stays current
@@ -567,3 +661,44 @@ const MONITOR_REFRESH_INTERVAL_MS = 8000;
 setInterval(() => refreshMonitorStatus(), MONITOR_REFRESH_INTERVAL_MS);
 
 loadPage();
+
+if (scanGroupsBtn) {
+  scanGroupsBtn.addEventListener('click', () => {
+    if (isScanningGroups) return;
+    isScanningGroups = true;
+    scanGroupsBtn.disabled = true;
+    setScanGroupsStatus('scanning');
+    try {
+      chrome.runtime.sendMessage({ type: 'START_GROUP_MEMBERSHIP_SCAN' }, (response) => {
+        if (chrome.runtime.lastError || (response && response.ok === false)) {
+          isScanningGroups = false;
+          scanGroupsBtn.disabled = false;
+          const msg =
+            (response && response.error) ||
+            (chrome.runtime.lastError && chrome.runtime.lastError.message) ||
+            'Could not start group scan. Please try again.';
+          setScanGroupsStatus('error', msg);
+        }
+      });
+    } catch (e) {
+      isScanningGroups = false;
+      scanGroupsBtn.disabled = false;
+      setScanGroupsStatus('error');
+    }
+  });
+}
+
+// Listen for membership scan completion from background and update status + button state
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || !message.type) return;
+  if (message.type === 'GROUP_MEMBERSHIP_SCAN_COMPLETED') {
+    isScanningGroups = false;
+    if (scanGroupsBtn) scanGroupsBtn.disabled = false;
+    if (message.error) {
+      setScanGroupsStatus('error', message.error);
+    } else {
+      const count = typeof message.count === 'number' ? message.count : 0;
+      setScanGroupsStatus('success', count);
+    }
+  }
+});
