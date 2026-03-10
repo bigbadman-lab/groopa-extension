@@ -70,8 +70,8 @@ function tabUrlMatchesTrackedGroup(tabUrl, trackedGroups) {
 const SCAN_HEARTBEAT_ALARM_NAME = 'groopa-scan-heartbeat';
 const SCAN_HEARTBEAT_INTERVAL_MINUTES = 0.5; // 30 seconds (one-shot reschedule; Chrome min period is 1 min)
 
-// Simple membership scan state (one at a time) and target URL
-const FACEBOOK_GROUPS_LISTING_URL = 'https://www.facebook.com/groups/feed/';
+// Joined-groups scan: use /groups/joins/ as source of truth; reuse monitor window/tab
+const FACEBOOK_JOINED_GROUPS_URL = 'https://www.facebook.com/groups/joins/';
 let membershipScanInProgress = false;
 
 function scheduleScanHeartbeat() {
@@ -531,33 +531,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         membershipScanInProgress = true;
-        // Acknowledge that the scan has started; the final result will be sent via GROUP_MEMBERSHIP_SCAN_COMPLETED.
         sendResponse({ ok: true });
 
-        // Open or focus a Facebook tab on the groups listing page
-        const fbGroupsUrl = FACEBOOK_GROUPS_LISTING_URL;
-        let tabId = null;
-        const fbTabs = await chrome.tabs.query({ url: '*://*.facebook.com/*' });
-        if (fbTabs && fbTabs.length > 0) {
-          tabId = fbTabs[0].id;
-          await chrome.tabs.update(tabId, { active: true, url: fbGroupsUrl });
-        } else {
-          const created = await chrome.tabs.create({ url: fbGroupsUrl, active: true });
-          tabId = created && created.id != null ? created.id : null;
-        }
+        // Reuse monitor window and tab; navigate to joined-groups page
+        const { windowId } = await ensureMonitorWindow();
+        const { tabId } = await ensureMonitorTab(windowId);
+        await chrome.tabs.update(tabId, { url: FACEBOOK_JOINED_GROUPS_URL, active: true });
+        await chrome.windows.update(windowId, { focused: true });
 
-        if (tabId == null) {
-          membershipScanInProgress = false;
-          chrome.runtime.sendMessage({
-            type: 'GROUP_MEMBERSHIP_SCAN_COMPLETED',
-            count: 0,
-            error: 'Could not open Facebook. Please make sure Chrome can open new tabs.',
-          });
-          return;
-        }
-
-        // Give the page a few seconds to load before asking the content script to scan
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        // Wait for the page to load and settle before content script scans
+        await new Promise((resolve) => setTimeout(resolve, 6000));
 
         const result = await new Promise((resolve) => {
           chrome.tabs.sendMessage(tabId, { type: 'RUN_GROUP_MEMBERSHIP_SCAN' }, (response) => {
@@ -575,7 +558,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!result || result.ok === false || !Array.isArray(result.groups)) {
           error =
             (result && result.error) ||
-            'Could not read your groups on this page. Please make sure you are logged into Facebook.';
+            'Could not read your groups. Make sure you are logged into Facebook and the page loaded.';
         } else {
           const now = new Date().toISOString();
           const groups = result.groups;

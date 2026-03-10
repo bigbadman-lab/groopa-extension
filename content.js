@@ -73,16 +73,13 @@
     }
   }
 
-  // ----- Membership scan: discover joined Facebook groups on listing pages -----
+  // ----- Joined-groups scan: /groups/joins/ with auto-scroll -----
 
   /**
-   * Scan the current Facebook page for group links the user appears to belong to.
-   * Looks for anchors with /groups/<segment> in the path, builds a simple list of
-   * { id?, name, url, sourceUrl } objects, and dedupes by id or canonical URL.
-   * This does NOT track groups; it only discovers them for the settings page.
+   * Collect group links from the current DOM. Normalizes URLs, dedupes by id or URL.
+   * Skips feed, discover, create, joins. Allows empty name (best-available from text).
    */
-  function scanJoinedFacebookGroups() {
-    if (!isExtensionContextValid()) return [];
+  function collectGroupsFromPage() {
     const anchors = document.querySelectorAll('a[href*="/groups/"]');
     const byKey = {};
 
@@ -108,35 +105,104 @@
       const segment = match[1];
       if (!segment) continue;
       const segLower = segment.toLowerCase();
-      // Skip non-membership pages like /groups/feed, /groups/discover, /groups/create
-      if (segLower === 'feed' || segLower === 'discover' || segLower === 'create') continue;
+      if (segLower === 'feed' || segLower === 'discover' || segLower === 'create' || segLower === 'joins') continue;
 
       const canonicalUrl = 'https://www.facebook.com/groups/' + segment;
       const id = /^[0-9]+$/.test(segment) ? segment : undefined;
       const name = (a.textContent || '').trim();
-      if (!name) continue;
 
       const key = id ? 'id:' + id : 'url:' + canonicalUrl.toLowerCase();
       if (!byKey[key]) {
-        byKey[key] = {
-          id: id,
-          name: name,
-          url: canonicalUrl,
-          sourceUrl: window.location.href,
-        };
+        byKey[key] = { id: id, name: name, url: canonicalUrl, sourceUrl: window.location.href };
       }
     }
 
-    return Object.keys(byKey).map(function (k) {
-      return byKey[k];
+    return byKey;
+  }
+
+  const MAX_SCROLL_CYCLES = 30;
+  const SCROLL_WAIT_MS = 1500;
+  const NO_NEW_CYCLES_STOP = 3;
+  const SAME_HEIGHT_CYCLES_STOP = 2;
+
+  /**
+   * Run joined-groups scan with auto-scroll on /groups/joins/. Scrolls down, collects
+   * groups, repeats. Stops when no new groups for 3 cycles, or height stable for 2, or max 30 cycles.
+   */
+  function scanJoinedGroupsPage() {
+    return new Promise(function (resolve) {
+      if (!isExtensionContextValid()) {
+        resolve([]);
+        return;
+      }
+
+      const allByKey = {};
+      let noNewCount = 0;
+      let lastHeight = 0;
+      let sameHeightCount = 0;
+      let cycle = 0;
+
+      function runCycle() {
+        if (!isExtensionContextValid()) {
+          resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+          return;
+        }
+
+        const beforeCount = Object.keys(allByKey).length;
+        const pageGroups = collectGroupsFromPage();
+        for (const k in pageGroups) {
+          if (!allByKey[k]) allByKey[k] = pageGroups[k];
+        }
+        const newThisCycle = Object.keys(allByKey).length - beforeCount;
+
+        if (newThisCycle === 0) {
+          noNewCount++;
+          if (noNewCount >= NO_NEW_CYCLES_STOP) {
+            resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+            return;
+          }
+        } else {
+          noNewCount = 0;
+        }
+
+        const docEl = document.documentElement;
+        const body = document.body;
+        const scrollHeight = Math.max(docEl.scrollHeight || 0, body.scrollHeight || 0);
+        if (scrollHeight === lastHeight) {
+          sameHeightCount++;
+          if (sameHeightCount >= SAME_HEIGHT_CYCLES_STOP) {
+            resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+            return;
+          }
+        } else {
+          sameHeightCount = 0;
+        }
+        lastHeight = scrollHeight;
+
+        cycle++;
+        if (cycle >= MAX_SCROLL_CYCLES) {
+          resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+          return;
+        }
+
+        window.scrollTo(0, scrollHeight);
+        setTimeout(runCycle, SCROLL_WAIT_MS);
+      }
+
+      runCycle();
     });
   }
 
   chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     if (!isExtensionContextValid()) return false;
     if (message && message.type === 'RUN_GROUP_MEMBERSHIP_SCAN') {
-      const groups = scanJoinedFacebookGroups();
-      sendResponse({ ok: true, groups: groups });
+      scanJoinedGroupsPage()
+        .then(function (groups) {
+          sendResponse({ ok: true, groups: groups });
+        })
+        .catch(function (err) {
+          sendResponse({ ok: false, error: err && err.message ? err.message : 'Scan failed' });
+        });
       return true;
     }
     return false;
