@@ -15,7 +15,6 @@ const inboxEmptyStateEl = document.getElementById('inbox-empty-state');
 const inboxTwoPanelsEl = document.getElementById('inbox-two-panels');
 const inboxStatTotalEl = document.getElementById('inbox-stat-total');
 const inboxStatNewEl = document.getElementById('inbox-stat-new');
-const inboxDetailPlaceholderEl = document.getElementById('inbox-detail-placeholder');
 const inboxDetailContentEl = document.getElementById('inbox-detail-content');
 const inboxDetailBack = document.getElementById('inbox-detail-back');
 const inboxDetailGroup = document.getElementById('inbox-detail-group');
@@ -507,13 +506,14 @@ function renderInbox() {
   // If selection is no longer in list (e.g. after storage refresh), clear it
   if (selectedInboxDetection && list.findIndex((d) => d.fingerprint === selectedInboxDetection.fingerprint) < 0) {
     selectedInboxDetection = null;
-    if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
     if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
   }
-  // Auto-select first lead when none selected
+  // Auto-select newest lead when none selected (by createdAt, newest first)
   if (list.length > 0 && !selectedInboxDetection) {
-    selectedInboxDetection = list[0];
-    showInboxDetailContent(list[0]);
+    const byNewest = list.slice().sort((a, b) => (new Date(b.createdAt || 0)).getTime() - (new Date(a.createdAt || 0)).getTime());
+    const newest = byNewest[0];
+    selectedInboxDetection = newest;
+    showInboxDetailContent(newest);
   }
   updateInboxRowSelection();
 }
@@ -533,24 +533,19 @@ function showInboxDetailContent(detection) {
     inboxOpenPostLink.href = detection.pageUrl || '#';
     inboxOpenPostLink.style.display = detection.pageUrl ? 'inline-block' : 'none';
   }
-  if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = true;
   if (inboxDetailContentEl) inboxDetailContentEl.hidden = false;
 }
 
 function showInboxDetail(detection) {
   selectedInboxDetection = detection;
   if (detection) showInboxDetailContent(detection);
-  else {
-    if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
-    if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
-  }
+  else if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
   updateInboxRowSelection();
 }
 
 function showInboxList() {
   selectedInboxDetection = null;
   generatedReplyText = '';
-  if (inboxDetailPlaceholderEl) inboxDetailPlaceholderEl.hidden = false;
   if (inboxDetailContentEl) inboxDetailContentEl.hidden = true;
   updateInboxRowSelection();
 }

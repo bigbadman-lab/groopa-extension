@@ -765,19 +765,6 @@ body {
   background: #fafafa;
 }
 
-.inbox-detail-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 280px;
-}
-
-.inbox-detail-placeholder-text {
-  margin: 0;
-  font-size: 14px;
-  color: #888;
-}
-
 .inbox-detail-content .inbox-back {
   display: inline-block;
   margin-bottom: 16px;
