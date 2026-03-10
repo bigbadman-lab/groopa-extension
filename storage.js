@@ -4,7 +4,7 @@
 const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'desktopAlertsEnabled'];
 
 // Local: larger operational data (no strict quota per item)
-const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'monitoringState'];
+const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'monitoringState', 'telegram'];
 
 const DEFAULTS = {
   isPaidUser: false,
@@ -23,6 +23,13 @@ const DEFAULTS = {
     monitorTabId: null,
     nextTrackedGroupIndex: 0,
     monitorLastRunAt: null,
+  },
+  telegram: {
+    enabled: false,
+    connected: false,
+    status: 'disconnected',
+    username: null,
+    linkedAt: null,
   },
 };
 
@@ -88,6 +95,7 @@ async function getSettings() {
     pagePostCandidates: Array.isArray(rawLocal.pagePostCandidates) ? rawLocal.pagePostCandidates : DEFAULTS.pagePostCandidates,
     groupLastScannedAt: rawLocal.groupLastScannedAt != null && typeof rawLocal.groupLastScannedAt === 'object' ? rawLocal.groupLastScannedAt : DEFAULTS.groupLastScannedAt,
     monitoringState: rawLocal.monitoringState != null && typeof rawLocal.monitoringState === 'object' ? { ...DEFAULTS.monitoringState, ...rawLocal.monitoringState } : DEFAULTS.monitoringState,
+    telegram: rawLocal.telegram != null && typeof rawLocal.telegram === 'object' ? { ...DEFAULTS.telegram, ...rawLocal.telegram } : DEFAULTS.telegram,
   };
 }
 
