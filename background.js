@@ -582,6 +582,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const now = new Date().toISOString();
           const groups = result.groups;
           count = groups.length;
+          const cycleStats = Array.isArray(result.cycleStats) ? result.cycleStats : [];
+          console.log('[Groopa] Membership scan completed:', count, 'groups,', cycleStats.length, 'cycles, stats:', cycleStats.slice(-15));
+          if (cycleStats.length > 0) {
+            await addActivityLogEntry({
+              timestamp: now,
+              kind: 'membership_scan_diagnostics',
+              finalGroupCount: count,
+              cycleCount: cycleStats.length,
+              scrollTargetType: cycleStats[cycleStats.length - 1].scrollTargetType,
+              scrollContainerFound: cycleStats[cycleStats.length - 1].scrollContainerFound,
+              lastCycles: cycleStats.slice(-20),
+            });
+          }
           for (let i = 0; i < groups.length; i++) {
             const g = groups[i];
             if (!g || !g.url) continue;

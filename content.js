@@ -118,16 +118,25 @@
   }
 
   /**
-   * Find the best container for a group link (card/list item that holds this link and its name).
+   * Find the best container for a group link (card/list item). Tries multiple patterns for tolerance.
    */
   function getGroupContainer(linkEl) {
     if (!linkEl || !linkEl.closest) return null;
-    const listItem = linkEl.closest('[role="listitem"]');
-    if (listItem) return listItem;
-    const article = linkEl.closest('article');
-    if (article) return article;
+    const selectors = [
+      '[role="listitem"]',
+      'article',
+      '[role="list"] > *',
+      '[data-pagelet]',
+      '[role="main"] div[style*="overflow"]',
+    ];
+    for (let s = 0; s < selectors.length; s++) {
+      try {
+        const found = linkEl.closest(selectors[s]);
+        if (found && found !== linkEl && found.getBoundingClientRect && found.getBoundingClientRect().height > 15) return found;
+      } catch (_) {}
+    }
     let parent = linkEl.parentElement;
-    for (let i = 0; i < 12 && parent; i++) {
+    for (let i = 0; i < 15 && parent; i++) {
       if (parent.getBoundingClientRect && parent.getBoundingClientRect().height > 20) return parent;
       parent = parent.parentElement;
     }
@@ -203,39 +212,90 @@
     return byKey;
   }
 
-  const MAX_SCROLL_CYCLES = 40;
-  const SCROLL_WAIT_MS = 1800;
-  const NO_NEW_CYCLES_STOP = 4;
-  const SAME_HEIGHT_CYCLES_STOP = 2;
+  const MAX_SCROLL_CYCLES = 60;
+  const SCROLL_WAIT_MS = 2200;
+  const NO_NEW_CYCLES_STOP = 5;
+  const SAME_HEIGHT_CYCLES_STOP = 3;
 
   /**
-   * Run joined-groups scan with auto-scroll on /groups/joins/. Rescans full DOM each cycle.
-   * Stops after 4 consecutive cycles with no new groups, or 2 cycles with same page height, or 40 cycles.
+   * Heuristic: find the scrollable element that likely contains the joined-groups list.
+   * Prefers an element with overflow scroll/auto, scrollHeight > clientHeight, that contains group links.
+   */
+  function findScrollContainer() {
+    const minHeight = 200;
+    const candidates = [];
+    const divs = document.querySelectorAll('div');
+    for (let i = 0; i < divs.length && candidates.length < 50; i++) {
+      const el = divs[i];
+      if (el.clientHeight < minHeight || el.scrollHeight <= el.clientHeight) continue;
+      const style = window.getComputedStyle(el);
+      const ov = (style.overflowY || '') + (style.overflow || '');
+      if (ov.indexOf('auto') === -1 && ov.indexOf('scroll') === -1) continue;
+      const links = el.querySelectorAll('a[href*="/groups/"]');
+      let validLinks = 0;
+      for (let j = 0; j < links.length; j++) {
+        if (parseGroupLinkFromHref(links[j].getAttribute('href'))) validLinks++;
+      }
+      if (validLinks > 0) candidates.push({ el: el, scrollHeight: el.scrollHeight, validLinks: validLinks });
+    }
+    if (candidates.length === 0) return null;
+    candidates.sort(function (a, b) {
+      if (b.validLinks !== a.validLinks) return b.validLinks - a.validLinks;
+      return b.scrollHeight - a.scrollHeight;
+    });
+    return candidates[0].el;
+  }
+
+  /**
+   * Run joined-groups scan with auto-scroll on /groups/joins/. Uses internal scroll container when found.
+   * Rescans full DOM each cycle. Stops after 5 no-new cycles, 3 same-height cycles, or 60 cycles.
    */
   function scanJoinedGroupsPage() {
     return new Promise(function (resolve) {
       if (!isExtensionContextValid()) {
-        resolve([]);
+        resolve({ groups: [], cycleStats: [] });
         return;
       }
       const pathname = (window.location.pathname || '').toLowerCase();
       const isJoinsPage = pathname.indexOf('/groups/joins') !== -1;
       const collector = isJoinsPage ? collectGroupsFromJoinsPage : collectGroupsFromPage;
 
+      const scrollContainer = isJoinsPage ? findScrollContainer() : null;
+      const scrollTargetType = scrollContainer ? 'container' : 'window';
       const allByKey = {};
       let noNewCount = 0;
-      let lastHeight = 0;
+      let lastScrollHeight = 0;
       let sameHeightCount = 0;
       let cycle = 0;
+      const cycleStats = [];
+
+      function getScrollHeight() {
+        if (scrollContainer) return scrollContainer.scrollHeight;
+        const docEl = document.documentElement;
+        const body = document.body;
+        return Math.max(docEl.scrollHeight || 0, body.scrollHeight || 0);
+      }
+      function getScrollTop() {
+        if (scrollContainer) return scrollContainer.scrollTop;
+        return window.scrollY || document.documentElement.scrollTop || 0;
+      }
+      function doScroll(heightOrPosition) {
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        } else {
+          window.scrollTo(0, heightOrPosition);
+        }
+      }
 
       function runCycle() {
         if (!isExtensionContextValid()) {
-          resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+          resolve({ groups: Object.keys(allByKey).map(function (k) { return allByKey[k]; }), cycleStats: cycleStats });
           return;
         }
 
         const beforeCount = Object.keys(allByKey).length;
         const pageGroups = collector();
+        const candidateLinksCount = isJoinsPage ? document.querySelectorAll('a[href*="/groups/"]').length : 0;
         for (const k in pageGroups) {
           const incoming = pageGroups[k];
           if (!allByKey[k]) {
@@ -244,39 +304,52 @@
             allByKey[k] = { ...allByKey[k], name: incoming.name };
           }
         }
-        const newThisCycle = Object.keys(allByKey).length - beforeCount;
+        const uniqueCount = Object.keys(allByKey).length;
+        const newThisCycle = uniqueCount - beforeCount;
+        const scrollHeight = getScrollHeight();
+        const scrollTop = getScrollTop();
+
+        const stats = {
+          cycle: cycle,
+          scrollTargetType: scrollTargetType,
+          scrollContainerFound: !!scrollContainer,
+          uniqueCount: uniqueCount,
+          newThisCycle: newThisCycle,
+          scrollHeight: scrollHeight,
+          scrollTop: scrollTop,
+          candidateLinksCount: candidateLinksCount,
+        };
+        cycleStats.push(stats);
+        console.log(PREFIX, 'Scan cycle', stats);
 
         if (newThisCycle === 0) {
           noNewCount++;
           if (noNewCount >= NO_NEW_CYCLES_STOP) {
-            resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+            resolve({ groups: Object.keys(allByKey).map(function (k) { return allByKey[k]; }), cycleStats: cycleStats });
             return;
           }
         } else {
           noNewCount = 0;
         }
 
-        const docEl = document.documentElement;
-        const body = document.body;
-        const scrollHeight = Math.max(docEl.scrollHeight || 0, body.scrollHeight || 0);
-        if (scrollHeight === lastHeight) {
+        if (scrollHeight === lastScrollHeight) {
           sameHeightCount++;
           if (sameHeightCount >= SAME_HEIGHT_CYCLES_STOP) {
-            resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+            resolve({ groups: Object.keys(allByKey).map(function (k) { return allByKey[k]; }), cycleStats: cycleStats });
             return;
           }
         } else {
           sameHeightCount = 0;
         }
-        lastHeight = scrollHeight;
+        lastScrollHeight = scrollHeight;
 
         cycle++;
         if (cycle >= MAX_SCROLL_CYCLES) {
-          resolve(Object.keys(allByKey).map(function (k) { return allByKey[k]; }));
+          resolve({ groups: Object.keys(allByKey).map(function (k) { return allByKey[k]; }), cycleStats: cycleStats });
           return;
         }
 
-        window.scrollTo(0, scrollHeight);
+        doScroll(scrollHeight);
         setTimeout(runCycle, SCROLL_WAIT_MS);
       }
 
@@ -403,8 +476,10 @@
     if (!isExtensionContextValid()) return false;
     if (message && message.type === 'RUN_GROUP_MEMBERSHIP_SCAN') {
       scanJoinedGroupsPage()
-        .then(function (groups) {
-          sendResponse({ ok: true, groups: groups });
+        .then(function (result) {
+          const groups = (result && result.groups) ? result.groups : [];
+          const cycleStats = (result && result.cycleStats) ? result.cycleStats : [];
+          sendResponse({ ok: true, groups: groups, cycleStats: cycleStats });
         })
         .catch(function (err) {
           sendResponse({ ok: false, error: err && err.message ? err.message : 'Scan failed' });
