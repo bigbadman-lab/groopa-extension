@@ -269,12 +269,54 @@ async function updateUnreadBadge() {
   }
 }
 
+const OPEN_INBOX_ON_NEXT_LOAD_KEY = 'groopaOpenInboxOnNextLoad';
+
+/**
+ * Central handler for new lead alerts: badge update and browser notification.
+ * Call only after leads have been confirmed new and stored (e.g. from appendDetectionsIfNew).
+ * @param {object[]} added - detections that were actually added (truly new)
+ */
+async function handleNewLeadAlert(added) {
+  if (!Array.isArray(added) || added.length === 0) return;
+  await updateUnreadBadge();
+  const settings = await getSettings();
+  if (!settings.desktopAlertsEnabled) return;
+  const d = added[0];
+  const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
+  const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
+  const title = added.length > 1 ? added.length + ' new Groopa leads' : 'New Groopa lead';
+  const message =
+    added.length > 1
+      ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
+      : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
+  const notificationId = 'groopa-lead-' + Date.now();
+  await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
+  try {
+    const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+    await chrome.notifications.create(notificationId, {
+      type: 'basic',
+      iconUrl: iconUrl,
+      title: title,
+      message: (message && String(message).trim()) ? String(message).trim().slice(0, 200) : 'New lead detected.',
+      buttons: [{ title: 'Open Inbox' }, { title: 'Open Facebook Post' }],
+    });
+  } catch (notifErr) {
+    console.warn('[Groopa] Notification create failed', notifErr);
+  }
+}
+
+function setOpenInboxOnNextLoad() {
+  chrome.storage.local.set({ [OPEN_INBOX_ON_NEXT_LOAD_KEY]: true });
+}
+
 chrome.notifications.onClicked.addListener(() => {
+  setOpenInboxOnNextLoad();
   chrome.runtime.openOptionsPage();
 });
 
 chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
   if (buttonIndex === 0) {
+    setOpenInboxOnNextLoad();
     chrome.runtime.openOptionsPage();
     return;
   }
@@ -448,31 +490,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         if (added.length > 0) {
-          await updateUnreadBadge();
-          const d = added[0];
-          const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
-          const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
-          const title = added.length > 1 ? added.length + ' new Groopa leads detected' : 'New Groopa lead detected';
-          const message =
-            added.length > 1
-              ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
-              : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
-          const notificationId = 'groopa-scan-' + Date.now();
-          await setNotificationContext({ notificationId, pageUrl: d.pageUrl || '' });
-          try {
-            const notifTitle = (title && String(title).trim()) ? String(title).trim() : 'Groopa';
-            const notifMessage = (message && String(message).trim()) ? String(message).trim() : 'New lead detected.';
-            const iconUrl = chrome.runtime.getURL('icons/icon128.png');
-            chrome.notifications.create(notificationId, {
-              type: 'basic',
-              iconUrl: iconUrl,
-              title: notifTitle,
-              message: notifMessage,
-              buttons: [{ title: 'Open Lead' }, { title: 'Open Facebook Post' }],
-            });
-          } catch (notifErr) {
-            console.warn('[Groopa] Notification create failed', notifErr);
-          }
+          await handleNewLeadAlert(added);
         }
         sendResponse({ ok: true });
       } catch (err) {

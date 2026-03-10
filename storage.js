@@ -1,7 +1,7 @@
 // Groopa storage service — sync for settings, local for operational data
 
 // Sync: small settings only (fits quota)
-const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled'];
+const SYNC_KEYS = ['isPaidUser', 'keywords', 'soundEnabled', 'desktopAlertsEnabled'];
 
 // Local: larger operational data (no strict quota per item)
 const LOCAL_KEYS = ['detectedGroups', 'trackedGroups', 'detections', 'activityLog', 'lastFacebookContext', 'pagePostCandidates', 'groupLastScannedAt', 'monitoringState'];
@@ -79,6 +79,7 @@ async function getSettings() {
     isPaidUser: rawSync.isPaidUser === true,
     keywords: Array.isArray(rawSync.keywords) ? rawSync.keywords : DEFAULTS.keywords,
     soundEnabled: rawSync.soundEnabled !== false,
+    desktopAlertsEnabled: rawSync.desktopAlertsEnabled !== false,
     trackedGroups: Array.isArray(rawLocal.trackedGroups) ? rawLocal.trackedGroups : DEFAULTS.trackedGroups,
     detectedGroups: Array.isArray(rawLocal.detectedGroups) ? rawLocal.detectedGroups : DEFAULTS.detectedGroups,
     detections: Array.isArray(rawLocal.detections) ? rawLocal.detections : DEFAULTS.detections,
@@ -100,6 +101,7 @@ async function saveSettings(data) {
     isPaidUser: data.isPaidUser !== undefined ? data.isPaidUser : current.isPaidUser,
     keywords: data.keywords !== undefined ? data.keywords : current.keywords,
     soundEnabled: data.soundEnabled !== undefined ? data.soundEnabled : current.soundEnabled,
+    desktopAlertsEnabled: data.desktopAlertsEnabled !== undefined ? data.desktopAlertsEnabled : current.desktopAlertsEnabled,
   };
   await setInStorageSync(merged);
 }

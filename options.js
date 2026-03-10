@@ -2,6 +2,7 @@
 
 const paidCheckbox = document.getElementById('paid-user');
 const soundCheckbox = document.getElementById('sound-enabled');
+const desktopAlertsCheckbox = document.getElementById('desktop-alerts-enabled');
 const keywordInput = document.getElementById('keyword-input');
 const keywordAddBtn = document.getElementById('keyword-add-btn');
 const keywordsListEl = document.getElementById('keywords-list');
@@ -150,6 +151,7 @@ async function loadPage() {
   const settings = await getSettings();
   paidCheckbox.checked = settings.isPaidUser;
   soundCheckbox.checked = settings.soundEnabled;
+  if (desktopAlertsCheckbox) desktopAlertsCheckbox.checked = settings.desktopAlertsEnabled !== false;
   keywordList = Array.isArray(settings.keywords) ? settings.keywords.slice() : [];
   detectedGroupsList = Array.isArray(settings.detectedGroups) ? settings.detectedGroups.slice() : [];
   trackedGroupsList = Array.isArray(settings.trackedGroups) ? settings.trackedGroups.slice() : [];
@@ -352,6 +354,11 @@ if (keywordAddBtn && keywordInput) {
 soundCheckbox.addEventListener('change', async () => {
   await saveSettings({ soundEnabled: soundCheckbox.checked });
 });
+if (desktopAlertsCheckbox) {
+  desktopAlertsCheckbox.addEventListener('change', async () => {
+    await saveSettings({ desktopAlertsEnabled: desktopAlertsCheckbox.checked });
+  });
+}
 
 paidCheckbox.addEventListener('change', async () => {
   await saveSettings({ isPaidUser: paidCheckbox.checked });
@@ -739,7 +746,14 @@ chrome.storage.onChanged.addListener(function (changes, areaName) {
 const MONITOR_REFRESH_INTERVAL_MS = 8000;
 setInterval(() => refreshMonitorStatus(), MONITOR_REFRESH_INTERVAL_MS);
 
-loadPage();
+loadPage().then(() => {
+  chrome.storage.local.get(['groopaOpenInboxOnNextLoad'], (r) => {
+    if (r.groopaOpenInboxOnNextLoad) {
+      switchToPanel('inbox');
+      chrome.storage.local.remove('groopaOpenInboxOnNextLoad');
+    }
+  });
+});
 
 if (scanGroupsBtn) {
   scanGroupsBtn.addEventListener('click', () => {
