@@ -511,6 +511,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             textPreview: textPreview,
             matchedKeywords: matchedKeywords,
           });
+          let matchSource = 'post';
+          const postText = (c && c.postText != null) ? String(c.postText) : '';
+          const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
+          if (postText || commentText) {
+            const normPost = normalizeTextForFingerprint(postText);
+            const normComment = normalizeTextForFingerprint(commentText);
+            const inPost = matchedKeywords.some((kw) => normPost.indexOf(normalizeTextForFingerprint(kw)) !== -1);
+            const inComment = matchedKeywords.some((kw) => normComment.indexOf(normalizeTextForFingerprint(kw)) !== -1);
+            matchSource = inPost && inComment ? 'both' : inComment ? 'comment' : 'post';
+          }
           newDetections.push({
             matchedKeywords,
             textPreview,
@@ -518,6 +528,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             groupIdentifier,
             pageUrl,
             postUrl: postUrl,
+            matchSource: matchSource,
             createdAt: now,
             source: 'page_scan',
             type: 'keyword_match',

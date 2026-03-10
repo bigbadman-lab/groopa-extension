@@ -573,6 +573,40 @@
   }
 
   /**
+   * Get post-only text by cloning the node and removing nested [role="article"] (comments/replies)
+   * so their text is not included in the post portion.
+   */
+  function getPostOnlyText(node) {
+    if (!node || !node.cloneNode) return getTextFromNode(node);
+    const clone = node.cloneNode(true);
+    const nested = clone.querySelectorAll ? Array.from(clone.querySelectorAll('[role="article"]')) : [];
+    for (let i = 0; i < nested.length; i++) {
+      if (nested[i] && nested[i].parentNode) nested[i].parentNode.removeChild(nested[i]);
+    }
+    return getTextFromNode(clone);
+  }
+
+  /**
+   * Get combined text from post node and comment/reply nodes without double-counting.
+   * Post text = main node content only (nested articles removed from a clone). Comment text = nested [role="article"] only.
+   * Returns { combined, postText, commentText } so callers can use combined for matching and optionally pass breakdown for matchSource.
+   */
+  function getPostAndCommentText(node) {
+    const nestedArticles = node.querySelectorAll ? node.querySelectorAll('[role="article"]') : [];
+    const postText = nestedArticles.length > 0 ? getPostOnlyText(node) : getTextFromNode(node);
+    const postTrimmed = postText.trim();
+    if (nestedArticles.length === 0) return { combined: postTrimmed, postText: postTrimmed, commentText: '' };
+    const commentParts = [];
+    for (let j = 0; j < nestedArticles.length; j++) {
+      const t = getTextFromNode(nestedArticles[j]);
+      if (t.length > 0) commentParts.push(t);
+    }
+    const commentText = commentParts.join(' ').trim();
+    const combined = commentText.length > 0 ? (postTrimmed + ' ' + commentText) : postTrimmed;
+    return { combined: combined, postText: postTrimmed, commentText: commentText };
+  }
+
+  /**
    * Try to find a post permalink inside an article (timestamp/post-detail link).
    * Prefers links with /posts/, /permalink/, or story_fbid; otherwise first facebook.com link that looks like a post.
    * @param {Element} article
@@ -618,7 +652,7 @@
   function countNodesWithText(nodes) {
     var count = 0;
     for (var j = 0; j < nodes.length; j++) {
-      if (isLikelyRealPostText(getTextFromNode(nodes[j]))) count++;
+      if (isLikelyRealPostText(getPostAndCommentText(nodes[j]).combined)) count++;
     }
     return count;
   }
@@ -651,11 +685,11 @@
 
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
-      const cleaned = getTextFromNode(node);
+      const { combined: cleaned, postText, commentText } = getPostAndCommentText(node);
       const len = cleaned.length;
       const preview = (cleaned.slice(0, 80) || '(empty)') + (cleaned.length > 80 ? '…' : '');
 
-      console.log(PREFIX, 'article', i + 1, '— raw length:', len, 'cleaned preview:', preview);
+      console.log(PREFIX, 'article', i + 1, '— combined length:', len, 'preview:', preview);
 
       if (!isLikelyRealPostText(cleaned)) {
         console.log(PREFIX, 'article', i + 1, '— skipped (short, UI chrome, or repetitive junk)');
@@ -671,6 +705,8 @@
       candidates.push({
         textPreview: cleaned.length > MAX_PREVIEW_LEN ? cleaned.slice(0, MAX_PREVIEW_LEN) + '…' : cleaned,
         postUrl: postUrl || undefined,
+        postText: postText || undefined,
+        commentText: commentText || undefined,
       });
     }
     return { candidates, nodeCount, selector };
