@@ -545,15 +545,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         membershipScanInProgress = true;
         sendResponse({ ok: true });
 
-        // Reuse monitor window and tab; navigate to joined-groups page
+        function broadcastStatus(text) {
+          try {
+            chrome.runtime.sendMessage({ type: 'GROUP_MEMBERSHIP_SCAN_STATUS', message: text });
+          } catch (_) {}
+        }
+
+        broadcastStatus('Opening Facebook…');
         const { windowId } = await ensureMonitorWindow();
         const { tabId } = await ensureMonitorTab(windowId);
         await chrome.tabs.update(tabId, { url: FACEBOOK_JOINED_GROUPS_URL, active: true });
         await chrome.windows.update(windowId, { focused: true });
 
-        // Wait for the page to load and settle before content script scans
+        broadcastStatus('Loading joined groups page…');
         await new Promise((resolve) => setTimeout(resolve, 6000));
 
+        broadcastStatus('Scanning and scrolling for groups…');
         const result = await new Promise((resolve) => {
           chrome.tabs.sendMessage(tabId, { type: 'RUN_GROUP_MEMBERSHIP_SCAN' }, (response) => {
             if (chrome.runtime.lastError) {

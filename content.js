@@ -75,59 +75,142 @@
 
   // ----- Joined-groups scan: /groups/joins/ with auto-scroll -----
 
+  const RESERVED_GROUP_SEGMENTS = ['feed', 'discover', 'create', 'joins'];
+
+  function isReservedSegment(segment) {
+    if (!segment) return true;
+    return RESERVED_GROUP_SEGMENTS.indexOf(String(segment).toLowerCase()) !== -1;
+  }
+
   /**
-   * Collect group links from the current DOM. Normalizes URLs, dedupes by id or URL.
-   * Skips feed, discover, create, joins. Allows empty name (best-available from text).
+   * Parse group segment and build canonical URL/key. Returns null if reserved or invalid.
+   */
+  function parseGroupLinkFromHref(href) {
+    if (!href || typeof href !== 'string') return null;
+    try {
+      const u = new URL(href.trim(), window.location.href);
+      if (u.hostname.indexOf('facebook.com') === -1) return null;
+      const match = u.pathname.match(/\/groups\/([^/]+)/i);
+      if (!match || !match[1]) return null;
+      const segment = match[1];
+      if (isReservedSegment(segment)) return null;
+      const canonicalUrl = 'https://www.facebook.com/groups/' + segment;
+      const id = /^[0-9]+$/.test(segment) ? segment : undefined;
+      const key = id ? 'id:' + id : 'url:' + canonicalUrl.toLowerCase();
+      return { segment: segment, url: canonicalUrl, id: id, key: key };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Strip UI chrome from a candidate group name (members, posts, "Public group", etc.).
+   */
+  function cleanGroupNameForJoins(str) {
+    if (!str || typeof str !== 'string') return '';
+    let s = str.trim().replace(/\s+/g, ' ');
+    // Remove common suffixes: "· 5.2K members", "· 12 posts this week", "Public group", "Join", "Joined", "Leave"
+    s = s.replace(/\s*·\s*[\d.,KkMm]+?\s*(members?|posts?\s*(this\s*week|today)?)\s*$/gi, '');
+    s = s.replace(/\s*Public\s+group\s*$/gi, '');
+    s = s.replace(/\s*(Join|Joined|Leave|Leave group)\s*$/gi, '');
+    s = s.replace(/\s*\d+\s*(members?|posts?)\s*$/gi, '');
+    return s.trim();
+  }
+
+  /**
+   * Find the best container for a group link (card/list item that holds this link and its name).
+   */
+  function getGroupContainer(linkEl) {
+    if (!linkEl || !linkEl.closest) return null;
+    const listItem = linkEl.closest('[role="listitem"]');
+    if (listItem) return listItem;
+    const article = linkEl.closest('article');
+    if (article) return article;
+    let parent = linkEl.parentElement;
+    for (let i = 0; i < 12 && parent; i++) {
+      if (parent.getBoundingClientRect && parent.getBoundingClientRect().height > 20) return parent;
+      parent = parent.parentElement;
+    }
+    return linkEl.parentElement;
+  }
+
+  /**
+   * Extract the best available group name from a link and its container (heading, aria-label, link text).
+   */
+  function getBestGroupNameFromContainer(linkEl, container, segmentFallback) {
+    const linkText = cleanGroupNameForJoins((linkEl.textContent || '').trim());
+    if (linkText.length >= 2 && linkText.length <= 120) return linkText;
+    if (!container || container === linkEl) return segmentFallback || '';
+    const heading = container.querySelector('[role="heading"], h1, h2, h3, h4');
+    if (heading) {
+      const t = cleanGroupNameForJoins((heading.textContent || '').trim());
+      if (t.length >= 2 && t.length <= 120) return t;
+    }
+    const ariaLabel = linkEl.getAttribute('aria-label') || container.getAttribute('aria-label') || linkEl.getAttribute('title');
+    if (ariaLabel) {
+      const t = cleanGroupNameForJoins(ariaLabel);
+      if (t.length >= 2 && t.length <= 120) return t;
+    }
+    return segmentFallback || '';
+  }
+
+  /**
+   * Dedicated collector for https://www.facebook.com/groups/joins/. Uses container-based
+   * extraction and stronger name cleaning. Rescans full DOM each call.
+   */
+  function collectGroupsFromJoinsPage() {
+    const byKey = {};
+    const anchors = document.querySelectorAll('a[href*="/groups/"]');
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
+      const parsed = parseGroupLinkFromHref(a.getAttribute('href') || '');
+      if (!parsed) continue;
+      const container = getGroupContainer(a);
+      const name = getBestGroupNameFromContainer(a, container, parsed.segment);
+      const existing = byKey[parsed.key];
+      const useName = (name && name.length > 0) ? name : (existing && existing.name ? existing.name : '');
+      if (!existing || (useName.length > 0 && (!existing.name || existing.name.length < useName.length))) {
+        byKey[parsed.key] = {
+          id: parsed.id,
+          name: useName,
+          url: parsed.url,
+          sourceUrl: window.location.href,
+        };
+      } else if (!existing.name && useName) {
+        existing.name = useName;
+      }
+    }
+    return byKey;
+  }
+
+  /**
+   * Generic collector (fallback for non-joins pages). Normalizes URLs, skips reserved segments.
    */
   function collectGroupsFromPage() {
     const anchors = document.querySelectorAll('a[href*="/groups/"]');
     const byKey = {};
-
     for (let i = 0; i < anchors.length; i++) {
       const a = anchors[i];
-      const rawHref = a.getAttribute('href') || '';
-      if (!rawHref) continue;
-      let absUrl = '';
-      try {
-        absUrl = new URL(rawHref, window.location.href).toString();
-      } catch (_) {
-        continue;
-      }
-      let u;
-      try {
-        u = new URL(absUrl);
-      } catch (_) {
-        continue;
-      }
-      if (u.hostname.indexOf('facebook.com') === -1) continue;
-      const match = u.pathname.match(/\/groups\/([^/]+)/i);
-      if (!match) continue;
-      const segment = match[1];
-      if (!segment) continue;
-      const segLower = segment.toLowerCase();
-      if (segLower === 'feed' || segLower === 'discover' || segLower === 'create' || segLower === 'joins') continue;
-
-      const canonicalUrl = 'https://www.facebook.com/groups/' + segment;
-      const id = /^[0-9]+$/.test(segment) ? segment : undefined;
-      const name = (a.textContent || '').trim();
-
-      const key = id ? 'id:' + id : 'url:' + canonicalUrl.toLowerCase();
-      if (!byKey[key]) {
-        byKey[key] = { id: id, name: name, url: canonicalUrl, sourceUrl: window.location.href };
+      const parsed = parseGroupLinkFromHref(a.getAttribute('href') || '');
+      if (!parsed) continue;
+      const name = cleanGroupNameForJoins((a.textContent || '').trim());
+      if (!byKey[parsed.key]) {
+        byKey[parsed.key] = { id: parsed.id, name: name, url: parsed.url, sourceUrl: window.location.href };
+      } else if (name && (!byKey[parsed.key].name || byKey[parsed.key].name.length < name.length)) {
+        byKey[parsed.key].name = name;
       }
     }
-
     return byKey;
   }
 
-  const MAX_SCROLL_CYCLES = 30;
-  const SCROLL_WAIT_MS = 1500;
-  const NO_NEW_CYCLES_STOP = 3;
+  const MAX_SCROLL_CYCLES = 40;
+  const SCROLL_WAIT_MS = 1800;
+  const NO_NEW_CYCLES_STOP = 4;
   const SAME_HEIGHT_CYCLES_STOP = 2;
 
   /**
-   * Run joined-groups scan with auto-scroll on /groups/joins/. Scrolls down, collects
-   * groups, repeats. Stops when no new groups for 3 cycles, or height stable for 2, or max 30 cycles.
+   * Run joined-groups scan with auto-scroll on /groups/joins/. Rescans full DOM each cycle.
+   * Stops after 4 consecutive cycles with no new groups, or 2 cycles with same page height, or 40 cycles.
    */
   function scanJoinedGroupsPage() {
     return new Promise(function (resolve) {
@@ -135,6 +218,9 @@
         resolve([]);
         return;
       }
+      const pathname = (window.location.pathname || '').toLowerCase();
+      const isJoinsPage = pathname.indexOf('/groups/joins') !== -1;
+      const collector = isJoinsPage ? collectGroupsFromJoinsPage : collectGroupsFromPage;
 
       const allByKey = {};
       let noNewCount = 0;
@@ -149,9 +235,14 @@
         }
 
         const beforeCount = Object.keys(allByKey).length;
-        const pageGroups = collectGroupsFromPage();
+        const pageGroups = collector();
         for (const k in pageGroups) {
-          if (!allByKey[k]) allByKey[k] = pageGroups[k];
+          const incoming = pageGroups[k];
+          if (!allByKey[k]) {
+            allByKey[k] = incoming;
+          } else if (incoming.name && (!allByKey[k].name || allByKey[k].name.length < incoming.name.length)) {
+            allByKey[k] = { ...allByKey[k], name: incoming.name };
+          }
         }
         const newThisCycle = Object.keys(allByKey).length - beforeCount;
 

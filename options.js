@@ -133,7 +133,9 @@ function switchToPanel(panelId) {
 function setScanGroupsStatus(state, extra) {
   if (!scanGroupsStatusEl) return;
   if (state === 'scanning') {
-    scanGroupsStatusEl.textContent = 'Scanning your Facebook groups...';
+    scanGroupsStatusEl.textContent = 'Scanning your Facebook groups…';
+  } else if (state === 'status') {
+    scanGroupsStatusEl.textContent = extra || 'Scanning…';
   } else if (state === 'success') {
     const count = typeof extra === 'number' ? extra : 0;
     scanGroupsStatusEl.textContent = 'Found ' + count + ' group' + (count === 1 ? '' : 's');
@@ -785,10 +787,12 @@ if (runFeedExperimentBtn && feedExperimentMessageEl) {
   });
 }
 
-// Listen for membership scan completion from background and update status + button state
+// Listen for membership scan status and completion from background
 chrome.runtime.onMessage.addListener((message) => {
   if (!message || !message.type) return;
-  if (message.type === 'GROUP_MEMBERSHIP_SCAN_COMPLETED') {
+  if (message.type === 'GROUP_MEMBERSHIP_SCAN_STATUS' && message.message) {
+    setScanGroupsStatus('status', message.message);
+  } else if (message.type === 'GROUP_MEMBERSHIP_SCAN_COMPLETED') {
     isScanningGroups = false;
     if (scanGroupsBtn) scanGroupsBtn.disabled = false;
     if (message.error) {
