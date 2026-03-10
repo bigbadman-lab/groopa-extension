@@ -181,8 +181,29 @@ async function saveDetections(detections) {
 const MAX_DETECTIONS_STORED = 100;
 
 /**
+ * Canonical lead identity: same post = same key. Used for dedupe so one lead only ever exists once.
+ * 1. Normalized postUrl if available; 2. Fallback to fingerprint (group+text+keywords).
+ */
+function getCanonicalLeadKey(d) {
+  if (!d || typeof d !== 'object') return '';
+  const norm = d.postUrl ? normalizePostUrl(d.postUrl).toLowerCase() : '';
+  if (norm) return norm;
+  return (d.fingerprint != null ? String(d.fingerprint).trim() : '') || '';
+}
+
+/**
+ * Content part of fingerprint (preview|keywords) for matching same lead when one side has postUrl and the other does not.
+ */
+function getFingerprintContentPart(d) {
+  if (!d || !d.fingerprint) return '';
+  const fp = String(d.fingerprint);
+  const i = fp.indexOf('|');
+  return i >= 0 ? fp.slice(i + 1) : fp;
+}
+
+/**
  * Merge incoming detection into existing, preferring stronger metadata (non-empty groupName, postUrl, etc.).
- * Does not change fingerprint, createdAt, status, or id-like fields; only improves display/metadata.
+ * Does not change fingerprint, createdAt, status; only improves display/metadata. Never creates a new lead.
  */
 function mergeDetectionMetadata(existing, incoming) {
   const out = { ...existing };
@@ -200,58 +221,96 @@ function mergeDetectionMetadata(existing, incoming) {
   if (incoming.groupIdentifier && String(incoming.groupIdentifier).trim() && (!existing.groupIdentifier || !String(existing.groupIdentifier).trim())) {
     out.groupIdentifier = String(incoming.groupIdentifier).trim();
   }
+  if (incoming.textPreview && String(incoming.textPreview).trim() && (!existing.textPreview || String(existing.textPreview).trim().length < String(incoming.textPreview).trim().length)) {
+    out.textPreview = String(incoming.textPreview).trim();
+    out.text = out.textPreview;
+  }
   return out;
 }
 
 /**
- * Append new detections, dedupe by postUrl (primary) and fingerprint, merge metadata when same lead seen again.
- * Same post permalink never creates a second lead; conflicting group attribution is merged into one record.
+ * Append new detections; dedupe by canonical identity (postUrl then fingerprint). One lead = one record.
+ * Same post/comment never creates a second lead; re-seen leads only get metadata merged.
  * @param {object[]} newDetections - each must have .fingerprint (from buildDetectionFingerprint)
- * @returns {Promise<object[]>} the detections that were actually added (use this for badge + notifications)
+ * @returns {Promise<object[]>} the detections that were actually added (use for badge + notifications only)
  */
 async function appendDetectionsIfNew(newDetections) {
   if (!Array.isArray(newDetections) || newDetections.length === 0) return [];
   const existing = await getDetections();
+  const list = existing.slice();
   const seen = new Set(
-    existing.map(function (d) {
-      return d && d.fingerprint ? String(d.fingerprint) : null;
-    }).filter(Boolean)
+    existing.map(function (d) { return d && d.fingerprint ? String(d.fingerprint) : null; }).filter(Boolean)
   );
   const postUrlToIndex = {};
+  const canonicalKeyToIndex = {};
+  const contentKeyToIndex = {};
   for (let i = 0; i < existing.length; i++) {
     const d = existing[i];
-    if (d && d.postUrl) {
-      const norm = normalizePostUrl(d.postUrl);
-      if (norm) postUrlToIndex[norm.toLowerCase()] = i;
+    if (!d) continue;
+    if (d.postUrl) {
+      const n = normalizePostUrl(d.postUrl);
+      if (n) postUrlToIndex[n.toLowerCase()] = i;
+    } else {
+      const c = getFingerprintContentPart(d);
+      if (c) contentKeyToIndex[c] = i;
     }
+    const ck = getCanonicalLeadKey(d);
+    if (ck) canonicalKeyToIndex[ck] = i;
   }
+  const addedCanonicalToIndex = {};
   const toAdd = [];
-  let list = existing.slice();
+  const log = function (msg) {
+    if (typeof console !== 'undefined' && console.log) console.log('[Groopa] ' + msg);
+  };
   for (let i = 0; i < newDetections.length; i++) {
     const d = newDetections[i];
     if (!d || typeof d !== 'object') continue;
+    const fp = d.fingerprint != null ? String(d.fingerprint).trim() : '';
+    if (!fp) continue;
+    const canonicalKey = getCanonicalLeadKey(d);
     const postUrlNorm = d.postUrl ? normalizePostUrl(d.postUrl).toLowerCase() : '';
-    if (postUrlNorm && postUrlToIndex[postUrlNorm] !== undefined) {
-      const idx = postUrlToIndex[postUrlNorm];
-      const existingLead = list[idx];
-      if (existingLead && (existingLead.groupName !== d.groupName || existingLead.groupIdentifier !== d.groupIdentifier)) {
-        if (typeof console !== 'undefined' && console.log) {
-          console.log('[Groopa] Dedupe: same postUrl, different group attribution — merging into single lead');
-        }
+    let idx = -1;
+    let reason = '';
+    if (canonicalKey && canonicalKeyToIndex[canonicalKey] !== undefined) {
+      idx = canonicalKeyToIndex[canonicalKey];
+      reason = 'canonical identity matched';
+    } else if (canonicalKey && addedCanonicalToIndex[canonicalKey] !== undefined) {
+      idx = addedCanonicalToIndex[canonicalKey];
+      reason = 'canonical identity matched (same batch)';
+    } else if (postUrlNorm && postUrlToIndex[postUrlNorm] !== undefined) {
+      idx = postUrlToIndex[postUrlNorm];
+      reason = 'postUrl matched';
+    } else if (postUrlNorm) {
+      const contentKey = getFingerprintContentPart(d);
+      if (contentKey && contentKeyToIndex[contentKey] !== undefined) {
+        idx = contentKeyToIndex[contentKey];
+        reason = 'content matched (adding postUrl to existing)';
+        postUrlToIndex[postUrlNorm] = idx;
       }
+    }
+    if (idx >= 0 && reason) {
       list[idx] = mergeDetectionMetadata(list[idx], d);
+      if (reason.indexOf('content matched') >= 0 && list[idx].postUrl) {
+        const ckM = getCanonicalLeadKey(list[idx]);
+        if (ckM) canonicalKeyToIndex[ckM] = idx;
+      }
+      log('Dedupe: ' + reason + ', merging metadata (no new lead).');
       continue;
     }
-    const key = d.fingerprint != null ? String(d.fingerprint).trim() : '';
-    if (!key) continue;
-    if (seen.has(key)) {
-      const idx = list.findIndex(function (x) { return x && x.fingerprint === key; });
-      if (idx >= 0) list[idx] = mergeDetectionMetadata(list[idx], d);
+    if (seen.has(fp)) {
+      idx = list.findIndex(function (x) { return x && x.fingerprint === fp; });
+      if (idx >= 0) {
+        list[idx] = mergeDetectionMetadata(list[idx], d);
+        log('Dedupe: fingerprint matched, merging metadata (no new lead).');
+      }
       continue;
     }
-    seen.add(key);
+    seen.add(fp);
     toAdd.push(d);
     list.push(d);
+    const newIdx = list.length - 1;
+    if (canonicalKey) addedCanonicalToIndex[canonicalKey] = newIdx;
+    if (postUrlNorm) postUrlToIndex[postUrlNorm] = newIdx;
   }
   const anyMerged = list.length !== existing.length || list.some(function (d, i) { return d !== existing[i]; });
   if (toAdd.length === 0 && !anyMerged) return [];

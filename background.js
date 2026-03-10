@@ -319,20 +319,32 @@ async function playNewLeadSound() {
 /**
  * Central handler for new lead alerts: badge update, browser notification, and optional sound.
  * Call only after leads have been confirmed new and stored (e.g. from appendDetectionsIfNew).
+ * Second safety: only alert for leads whose canonical key appears exactly once (no duplicate).
  * @param {object[]} added - detections that were actually added (truly new)
  */
 async function handleNewLeadAlert(added) {
   if (!Array.isArray(added) || added.length === 0) return;
+  const list = await getDetections();
+  const keyCount = {};
+  for (let i = 0; i < list.length; i++) {
+    const k = typeof getCanonicalLeadKey === 'function' ? getCanonicalLeadKey(list[i]) : '';
+    if (k) keyCount[k] = (keyCount[k] || 0) + 1;
+  }
+  const trulyNew = added.filter(function (d) {
+    const k = typeof getCanonicalLeadKey === 'function' ? getCanonicalLeadKey(d) : '';
+    return k && keyCount[k] === 1;
+  });
+  if (trulyNew.length === 0) return;
   await updateUnreadBadge();
   playNewLeadSound();
   const settings = await getSettings();
   if (!settings.desktopAlertsEnabled) return;
-  const d = added[0];
+  const d = trulyNew[0];
   const groupLabel = (d.groupName && String(d.groupName).trim()) ? String(d.groupName).trim() : 'Facebook group';
   const preview = (d.textPreview && String(d.textPreview).trim()) ? String(d.textPreview).trim().slice(0, 80) : '';
-  const title = added.length > 1 ? added.length + ' new Groopa leads' : 'New Groopa lead';
+  const title = trulyNew.length > 1 ? trulyNew.length + ' new Groopa leads' : 'New Groopa lead';
   const message =
-    added.length > 1
+    trulyNew.length > 1
       ? 'Latest: ' + groupLabel + (preview ? ' — ' + preview.slice(0, 60) + (preview.length > 60 ? '…' : '') : '')
       : preview ? groupLabel + ': ' + preview + (preview.length >= 80 ? '…' : '') : groupLabel;
   const notificationId = 'groopa-lead-' + Date.now();
