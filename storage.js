@@ -441,8 +441,9 @@ function getSlugFromGroupUrl(url) {
 }
 
 /**
- * Clean raw lead text for display only (inbox, notifications). Removes trailing UI junk,
- * Facebook badges, and optionally a leading author-name prefix. Does not change stored text.
+ * Clean raw lead text for display only (inbox, notifications). Removes trailing UI junk
+ * and Facebook badges. Does not strip leading words; start of post text is preserved.
+ * Does not change stored text.
  * @param {string} rawText - textPreview or text from a detection
  * @returns {string} cleaned display string
  */
@@ -469,16 +470,11 @@ function cleanLeadDisplayText(rawText) {
   s = s.replace(/\bTop\s+contributor\b/gi, '').trim();
   s = s.replace(/\s+/g, ' ').trim();
 
-  // Conservative leading author prefix: only 1–2 title-case words when remainder is long enough
-  const leadingNameMatch = s.match(/^\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(.+)$/);
-  if (leadingNameMatch) {
-    const remainder = leadingNameMatch[2].trim();
-    if (remainder.length >= 20) {
-      s = remainder;
-      s = s.replace(/\s+/g, ' ').trim();
-    }
+  // Temporary debug: confirm start of string is preserved (no leading-word stripping)
+  const outFirst80 = s.slice(0, 80);
+  if (outFirst80) {
+    console.log('[Groopa] [text-pipeline] cleanLeadDisplayText out first80=', outFirst80);
   }
-
   return s;
 }
 

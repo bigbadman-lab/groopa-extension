@@ -571,7 +571,11 @@
 
   function getTextFromNode(node) {
     const raw = node.innerText != null ? node.innerText : (node.textContent || '');
-    return raw.trim().replace(/\s+/g, ' ');
+    const out = raw.trim().replace(/\s+/g, ' ');
+    if (out.length > 0) {
+      console.log(PREFIX, '[text-pipeline] getTextFromNode raw first80=', (raw || '').trim().replace(/\s+/g, ' ').slice(0, 80), '→ out first80=', out.slice(0, 80));
+    }
+    return out;
   }
 
   /**
@@ -605,6 +609,9 @@
     }
     const commentText = commentParts.join(' ').trim();
     const combined = commentText.length > 0 ? (postTrimmed + ' ' + commentText) : postTrimmed;
+    if (combined.length > 0) {
+      console.log(PREFIX, '[text-pipeline] getPostAndCommentText combined first80=', combined.slice(0, 80));
+    }
     return { combined: combined, postText: postTrimmed, commentText: commentText };
   }
 
@@ -704,8 +711,10 @@
       const postUrl = extractPostUrlFromArticle(node);
       if (postUrl) console.log(PREFIX, 'article', i + 1, '— postUrl:', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
 
+      const textPreview = cleaned.length > MAX_PREVIEW_LEN ? cleaned.slice(0, MAX_PREVIEW_LEN) + '…' : cleaned;
+      console.log(PREFIX, '[text-pipeline] candidate textPreview first80=', textPreview.slice(0, 80));
       candidates.push({
-        textPreview: cleaned.length > MAX_PREVIEW_LEN ? cleaned.slice(0, MAX_PREVIEW_LEN) + '…' : cleaned,
+        textPreview: textPreview,
         postUrl: postUrl || undefined,
         postText: postText || undefined,
         commentText: commentText || undefined,

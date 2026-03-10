@@ -613,6 +613,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
+          if (i === 0 && textPreview.length > 0) {
+            console.log('[Groopa] [text-pipeline] background received textPreview first80=', textPreview.slice(0, 80));
+          }
           const normalized = normalizeTextForFingerprint(textPreview);
           const matchedKeywords = getMatchingKeywords(normalized, keywords);
           if (matchedKeywords.length === 0) continue;
