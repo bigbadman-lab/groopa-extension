@@ -316,11 +316,32 @@ function waitForTabLoad(tabId, timeoutMs) {
 }
 
 /**
- * Ensure the monitor window has exactly workerCount tabs (reuse or create/remove). Tabs created with active: false.
+ * Returns true if all tab IDs exist and belong to the given window. Used to decide whether to reuse workers.
+ */
+async function validateWorkerTabIds(windowId, workerTabIds) {
+  if (!workerTabIds || workerTabIds.length === 0) return false;
+  for (let i = 0; i < workerTabIds.length; i++) {
+    try {
+      const tab = await chrome.tabs.get(workerTabIds[i]);
+      if (!tab || tab.windowId !== windowId) return false;
+    } catch (_) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Ensure we have workerCount worker tabs in the window. Reuse stored worker tab IDs when valid; create only when
+ * monitoring starts or a worker tab is missing. Tabs created with active: false. Do not create during scan cycle.
  * Returns { workerTabIds } of length workerCount.
  */
 async function ensureMonitorWorkers(windowId, workerCount) {
   if (workerCount < 1) return { workerTabIds: [] };
+  const state = await getMonitoringState();
+  if (state.workerTabIds && state.workerTabIds.length === workerCount && await validateWorkerTabIds(windowId, state.workerTabIds)) {
+    return { workerTabIds: state.workerTabIds };
+  }
   const existingTabs = await chrome.tabs.query({ windowId });
   let tabIds = (existingTabs || []).map((t) => t.id).filter((id) => id != null);
 
@@ -338,7 +359,6 @@ async function ensureMonitorWorkers(windowId, workerCount) {
     else break;
   }
   const workerTabIds = tabIds.slice(0, workerCount);
-  const state = await getMonitoringState();
   const workerCurrentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length === workerCount
     ? state.workerCurrentIndices
     : workerTabIds.map(() => 0);
@@ -363,7 +383,9 @@ async function runHeartbeatScan() {
         return;
       }
       const { windowId } = await ensureMonitorWindow();
-      const { workerTabIds } = await ensureMonitorWorkers(windowId, workerCount);
+      let workerTabIds = state.workerTabIds && state.workerTabIds.length === workerCount && await validateWorkerTabIds(windowId, state.workerTabIds)
+        ? state.workerTabIds
+        : (await ensureMonitorWorkers(windowId, workerCount)).workerTabIds;
       const currentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length >= workerCount
         ? state.workerCurrentIndices.slice(0, workerCount)
         : workerTabIds.map(() => 0);
