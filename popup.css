@@ -38,23 +38,15 @@ body {
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
+  line-height: 0;
 }
 
 .brand-logo {
-  width: 24px;
-  height: 24px;
+  display: block;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
-}
-
-.brand-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
-  letter-spacing: -0.02em;
 }
 
 .header-settings-link {
