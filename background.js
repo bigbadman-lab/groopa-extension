@@ -163,29 +163,6 @@ function isCurrentGroupTracked(context, trackedGroups) {
   return false;
 }
 
-/**
- * Returns true if tabUrl is a Facebook group page that matches one of the tracked groups.
- * Used by the heartbeat to find tabs to send RUN_GROUP_SCAN to.
- */
-function tabUrlMatchesTrackedGroup(tabUrl, trackedGroups) {
-  if (!tabUrl || typeof tabUrl !== 'string' || !Array.isArray(trackedGroups) || trackedGroups.length === 0) return false;
-  if (tabUrl.indexOf('facebook.com') === -1 || tabUrl.indexOf('/groups/') === -1) return false;
-  const slug = getSlugFromGroupUrl(tabUrl);
-  if (!slug) return false;
-  const slugLower = slug.toLowerCase();
-  const tabNorm = normalizeFacebookGroupUrl(tabUrl);
-  for (let i = 0; i < trackedGroups.length; i++) {
-    const t = trackedGroups[i];
-    const trackedId = (t.id != null && String(t.id).trim()) ? String(t.id).trim().toLowerCase() : '';
-    const trackedSlug = (t.slug != null && String(t.slug).trim()) ? String(t.slug).trim().toLowerCase() : getSlugFromGroupUrl(t.url || '').toLowerCase();
-    const trackedNormalized = normalizeFacebookGroupUrl(t.url || '');
-    if (trackedId && trackedId === slugLower) return true;
-    if (trackedSlug && trackedSlug === slugLower) return true;
-    if (trackedNormalized && tabNorm && trackedNormalized === tabNorm) return true;
-  }
-  return false;
-}
-
 const SCAN_HEARTBEAT_ALARM_NAME = 'groopa-scan-heartbeat';
 const SCAN_HEARTBEAT_INTERVAL_MINUTES = 0.5; // 30 seconds (one-shot reschedule; Chrome min period is 1 min)
 
@@ -198,9 +175,7 @@ function scheduleScanHeartbeat() {
 }
 
 /**
- * Ensure the Groopa monitor window exists; create if missing. Clears stale IDs.
- * When we create a new window with url: 'about:blank', Chrome creates exactly one tab;
- * we store that tab's ID so we reuse it (single monitor tab, no extra blank tab).
+ * Ensure the Groopa monitoring window exists; create if missing. Single dedicated window only.
  */
 async function ensureMonitorWindow() {
   const state = await getMonitoringState();
@@ -209,10 +184,9 @@ async function ensureMonitorWindow() {
       await chrome.windows.get(state.monitorWindowId);
       return { windowId: state.monitorWindowId };
     } catch (_) {
-      await updateMonitoringState({ monitorWindowId: null, monitorTabId: null });
+      await updateMonitoringState({ monitorWindowId: null, monitorTabId: null, workerTabId: null });
     }
   }
-  // One window, one tab: create window with one blank tab and adopt that tab as the monitor tab
   const win = await chrome.windows.create({
     url: 'about:blank',
     type: 'popup',
@@ -225,7 +199,7 @@ async function ensureMonitorWindow() {
   if (!win || win.id == null) throw new Error('Could not create monitor window');
   const tabs = await chrome.tabs.query({ windowId: win.id });
   if (tabs && tabs.length > 0) {
-    await updateMonitoringState({ monitorWindowId: win.id, monitorTabId: tabs[0].id });
+    await updateMonitoringState({ monitorWindowId: win.id, monitorTabId: tabs[0].id, workerTabId: tabs[0].id });
   } else {
     await updateMonitoringState({ monitorWindowId: win.id });
   }
@@ -233,9 +207,37 @@ async function ensureMonitorWindow() {
 }
 
 /**
- * Ensure we have exactly one scan tab in the given monitor window. Reuse existing tab if valid;
- * otherwise adopt the window's first tab (if any) or create one. Never create a second tab
- * when the window already has a tab.
+ * Ensure exactly one worker tab exists in the monitoring window. Reuse if valid; create only if missing. active: false.
+ */
+async function ensureSingleWorkerTab(windowId) {
+  const state = await getMonitoringState();
+  const candidateId = state.workerTabId != null ? state.workerTabId : state.monitorTabId;
+  if (candidateId != null) {
+    try {
+      const tab = await chrome.tabs.get(candidateId);
+      if (tab && tab.windowId === windowId) {
+        await updateMonitoringState({ workerTabId: tab.id, monitorTabId: tab.id });
+        return { tabId: tab.id };
+      }
+    } catch (_) {}
+    await updateMonitoringState({ workerTabId: null, monitorTabId: null });
+  }
+  const existingTabs = await chrome.tabs.query({ windowId });
+  if (existingTabs && existingTabs.length > 0) {
+    const tabId = existingTabs[0].id;
+    await updateMonitoringState({ workerTabId: tabId, monitorTabId: tabId });
+    return { tabId };
+  }
+  const tab = await chrome.tabs.create({ windowId, url: 'about:blank', active: false });
+  if (tab && tab.id != null) {
+    await updateMonitoringState({ workerTabId: tab.id, monitorTabId: tab.id });
+    return { tabId: tab.id };
+  }
+  throw new Error('Could not create worker tab');
+}
+
+/**
+ * Ensure we have exactly one scan tab in the given monitor window. Used by group membership scan (non-monitoring).
  */
 async function ensureMonitorTab(windowId) {
   const state = await getMonitoringState();
@@ -271,28 +273,6 @@ function getGroupUrlForRotation(group) {
   return null;
 }
 
-/** Worker count from tracked group count: 1–5 → 1, 6–12 → 2, 13–20 → 3, 21–30 → 4, max 4. */
-function getWorkerCount(trackedGroupCount) {
-  const n = Math.min(30, Math.max(0, trackedGroupCount));
-  if (n <= 5) return 1;
-  if (n <= 12) return 2;
-  if (n <= 20) return 3;
-  return 4;
-}
-
-/** Split groups evenly across workers. Returns array of arrays (one per worker). */
-function splitGroupsForWorkers(groups, workerCount) {
-  if (!Array.isArray(groups) || workerCount < 1) return [];
-  const list = groups.slice();
-  const chunks = [];
-  for (let i = 0; i < workerCount; i++) {
-    const start = Math.floor((i * list.length) / workerCount);
-    const end = Math.floor(((i + 1) * list.length) / workerCount);
-    chunks.push(list.slice(start, end));
-  }
-  return chunks.filter((c) => c.length > 0);
-}
-
 /** Resolve when tab status is 'complete' or timeout. */
 function waitForTabLoad(tabId, timeoutMs) {
   timeoutMs = timeoutMs || 25000;
@@ -315,113 +295,67 @@ function waitForTabLoad(tabId, timeoutMs) {
   });
 }
 
-/**
- * Returns true if all tab IDs exist and belong to the given window. Used to decide whether to reuse workers.
- */
-async function validateWorkerTabIds(windowId, workerTabIds) {
-  if (!workerTabIds || workerTabIds.length === 0) return false;
-  for (let i = 0; i < workerTabIds.length; i++) {
-    try {
-      const tab = await chrome.tabs.get(workerTabIds[i]);
-      if (!tab || tab.windowId !== windowId) return false;
-    } catch (_) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Ensure we have workerCount worker tabs in the window. Reuse stored worker tab IDs when valid; create only when
- * monitoring starts or a worker tab is missing. Tabs created with active: false. Do not create during scan cycle.
- * Returns { workerTabIds } of length workerCount.
- */
-async function ensureMonitorWorkers(windowId, workerCount) {
-  if (workerCount < 1) return { workerTabIds: [] };
-  const state = await getMonitoringState();
-  if (state.workerTabIds && state.workerTabIds.length === workerCount && await validateWorkerTabIds(windowId, state.workerTabIds)) {
-    return { workerTabIds: state.workerTabIds };
-  }
-  const existingTabs = await chrome.tabs.query({ windowId });
-  let tabIds = (existingTabs || []).map((t) => t.id).filter((id) => id != null);
-
-  if (tabIds.length > workerCount) {
-    for (let i = workerCount; i < tabIds.length; i++) {
-      try {
-        await chrome.tabs.remove(tabIds[i]);
-      } catch (_) {}
-    }
-    tabIds = tabIds.slice(0, workerCount);
-  }
-  while (tabIds.length < workerCount) {
-    const tab = await chrome.tabs.create({ windowId, url: 'about:blank', active: false });
-    if (tab && tab.id != null) tabIds.push(tab.id);
-    else break;
-  }
-  const workerTabIds = tabIds.slice(0, workerCount);
-  const workerCurrentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length === workerCount
-    ? state.workerCurrentIndices
-    : workerTabIds.map(() => 0);
-  await updateMonitoringState({ workerTabIds, workerCurrentIndices, monitorTabId: workerTabIds[0] || state.monitorTabId });
-  return { workerTabIds };
-}
-
 async function runHeartbeatScan() {
   try {
     const state = await getMonitoringState();
-
-    if (state.monitoringEnabled) {
-      const trackedGroups = await getTrackedGroups();
-      if (trackedGroups.length === 0) {
-        scheduleScanHeartbeat();
-        return;
-      }
-      const workerCount = getWorkerCount(trackedGroups.length);
-      const assignments = splitGroupsForWorkers(trackedGroups, workerCount);
-      if (assignments.length === 0) {
-        scheduleScanHeartbeat();
-        return;
-      }
-      const { windowId } = await ensureMonitorWindow();
-      let workerTabIds = state.workerTabIds && state.workerTabIds.length === workerCount && await validateWorkerTabIds(windowId, state.workerTabIds)
-        ? state.workerTabIds
-        : (await ensureMonitorWorkers(windowId, workerCount)).workerTabIds;
-      const currentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length >= workerCount
-        ? state.workerCurrentIndices.slice(0, workerCount)
-        : workerTabIds.map(() => 0);
-
-      for (let w = 0; w < workerTabIds.length; w++) {
-        const groups = assignments[w];
-        if (!groups || groups.length === 0) continue;
-        const idx = currentIndices[w] % groups.length;
-        const group = groups[idx];
-        const url = getGroupUrlForRotation(group);
-        if (url) {
-          try {
-            await chrome.tabs.update(workerTabIds[w], { url, active: false });
-          } catch (_) {}
-        }
-      }
-
-      await Promise.all(workerTabIds.map((id) => waitForTabLoad(id)));
-
-      for (let w = 0; w < workerTabIds.length; w++) {
-        try {
-          await chrome.tabs.sendMessage(workerTabIds[w], { type: 'RUN_GROUP_SCAN' });
-        } catch (e) {
-          if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
-            console.warn('[Groopa] RUN_GROUP_SCAN worker', workerTabIds[w], e.message);
-          }
-        }
-      }
-
-      const nextIndices = assignments.map((arr, w) => (currentIndices[w] + 1) % Math.max(1, arr.length));
-      await updateMonitoringState({ workerCurrentIndices: nextIndices, monitorLastRunAt: new Date().toISOString() });
+    if (!state.monitoringEnabled) {
       scheduleScanHeartbeat();
       return;
     }
 
-    // When monitoring is off, only reschedule; no scanning. Group scanning runs only via worker tabs when monitoring is on.
+    const trackedGroups = await getTrackedGroups();
+    if (trackedGroups.length === 0) {
+      scheduleScanHeartbeat();
+      return;
+    }
+
+    let windowId = state.monitorWindowId;
+    try {
+      if (windowId != null) await chrome.windows.get(windowId);
+    } catch (_) {
+      windowId = null;
+    }
+    if (windowId == null) {
+      const r = await ensureMonitorWindow();
+      windowId = r.windowId;
+    }
+
+    let tabId = state.workerTabId != null ? state.workerTabId : state.monitorTabId;
+    try {
+      if (tabId != null) {
+        const tab = await chrome.tabs.get(tabId);
+        if (!tab || tab.windowId !== windowId) tabId = null;
+      }
+    } catch (_) {
+      tabId = null;
+    }
+    if (tabId == null) {
+      const r = await ensureSingleWorkerTab(windowId);
+      tabId = r.tabId;
+    }
+
+    const currentIndex = state.currentGroupIndex;
+    const group = trackedGroups[currentIndex % trackedGroups.length];
+    const url = getGroupUrlForRotation(group);
+    if (url) {
+      try {
+        await chrome.tabs.update(tabId, { url, active: false });
+      } catch (_) {}
+    }
+
+    await waitForTabLoad(tabId);
+
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'RUN_GROUP_SCAN' });
+    } catch (e) {
+      if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
+        console.warn('[Groopa] RUN_GROUP_SCAN worker', tabId, e.message);
+      }
+    }
+
+    const nextIndex = (currentIndex + 1) % Math.max(1, trackedGroups.length);
+    await updateMonitoringState({ currentGroupIndex: nextIndex, monitorLastRunAt: new Date().toISOString() });
+    scheduleScanHeartbeat();
   } catch (err) {
     console.error('[Groopa] runHeartbeatScan error', err);
   } finally {
@@ -1024,11 +958,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'START_MONITORING') {
     (async () => {
       try {
-        await updateMonitoringState({ monitoringEnabled: true });
         const trackedGroups = await getTrackedGroups();
-        const workerCount = getWorkerCount(trackedGroups.length);
+        if (trackedGroups.length === 0) {
+          sendResponse({ ok: false, error: 'Add at least one tracked group to start monitoring.' });
+          return;
+        }
+        await updateMonitoringState({ monitoringEnabled: true, currentGroupIndex: 0 });
         const { windowId } = await ensureMonitorWindow();
-        await ensureMonitorWorkers(windowId, workerCount);
+        await ensureSingleWorkerTab(windowId);
         runHeartbeatScan();
         sendResponse({ ok: true });
       } catch (err) {
@@ -1052,8 +989,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           monitoringEnabled: false,
           monitorWindowId: null,
           monitorTabId: null,
-          workerTabIds: [],
-          workerCurrentIndices: [],
+          workerTabId: null,
+          currentGroupIndex: 0,
         });
         sendResponse({ ok: true });
       } catch (err) {

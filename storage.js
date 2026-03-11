@@ -22,10 +22,9 @@ const DEFAULTS = {
     monitoringEnabled: false,
     monitorWindowId: null,
     monitorTabId: null,
-    nextTrackedGroupIndex: 0,
+    workerTabId: null,
+    currentGroupIndex: 0,
     monitorLastRunAt: null,
-    workerTabIds: [],
-    workerCurrentIndices: [],
   },
   telegram: {
     enabled: false,
@@ -837,21 +836,18 @@ async function setGroupFeedFingerprints(groupKey, fingerprints) {
 }
 
 /**
- * Get Groopa monitor window/tab state (operational, local storage).
+ * Get Groopa monitor window/tab state (operational, local storage). Single-worker model only.
  */
 async function getMonitoringState() {
   const raw = await getFromStorageLocal(['monitoringState']);
   const s = raw.monitoringState != null && typeof raw.monitoringState === 'object' ? raw.monitoringState : {};
-  const workerTabIds = Array.isArray(s.workerTabIds) ? s.workerTabIds.filter((id) => id != null).map(Number) : [];
-  const workerCurrentIndices = Array.isArray(s.workerCurrentIndices) ? s.workerCurrentIndices.map((n) => Math.max(0, parseInt(n, 10) || 0)) : [];
   return {
     monitoringEnabled: s.monitoringEnabled === true,
     monitorWindowId: s.monitorWindowId != null ? Number(s.monitorWindowId) : null,
     monitorTabId: s.monitorTabId != null ? Number(s.monitorTabId) : null,
-    nextTrackedGroupIndex: Math.max(0, parseInt(s.nextTrackedGroupIndex, 10) || 0),
+    workerTabId: s.workerTabId != null ? Number(s.workerTabId) : null,
+    currentGroupIndex: Math.max(0, parseInt(s.currentGroupIndex, 10) || 0),
     monitorLastRunAt: s.monitorLastRunAt != null && typeof s.monitorLastRunAt === 'string' ? s.monitorLastRunAt : null,
-    workerTabIds,
-    workerCurrentIndices,
   };
 }
 
