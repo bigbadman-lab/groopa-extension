@@ -1,4 +1,4 @@
-/* Design system: #F8FAFC bg, #FFF cards, #E5E7EB border, #111827 primary, #6B7280 secondary, #2563EB brand, #16A34A success */
+/* Design system: #F8FAFC bg, #FFF cards, #E5E7EB border, #111827 primary, #6B7280 secondary, #0b65fe brand, #16A34A success */
 * {
   box-sizing: border-box;
 }
@@ -49,7 +49,7 @@ body {
   padding: 4px 0;
   font-size: 13px;
   font-weight: 500;
-  color: #2563EB;
+  color: #0b65fe;
   background: none;
   border: none;
   cursor: pointer;
@@ -58,7 +58,7 @@ body {
 
 .header-settings-link:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 /* Monitoring status strip: soft green (active) / soft red (paused) */
@@ -239,7 +239,7 @@ body {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -247,7 +247,7 @@ body {
 }
 
 .btn-settings:hover {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 
 .btn-settings-secondary {
@@ -291,7 +291,7 @@ body {
   padding: 0;
   font-size: 13px;
   font-weight: 500;
-  color: #2563EB;
+  color: #0b65fe;
   background: none;
   border: none;
   cursor: pointer;
@@ -299,7 +299,7 @@ body {
 
 .btn-link:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .inbox-subtitle {
@@ -338,7 +338,7 @@ body {
 }
 
 .lead-card:hover {
-  border-color: #2563EB;
+  border-color: #0b65fe;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
 }
 
@@ -370,14 +370,14 @@ body {
 }
 
 .lead-card-keywords {
-  color: #2563EB;
+  color: #0b65fe;
   font-weight: 500;
 }
 
 .lead-card-new {
   font-size: 10px;
   padding: 2px 6px;
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
   border-radius: 5px;
   font-weight: 600;
@@ -392,13 +392,13 @@ body {
   display: inline-block;
   margin-bottom: 12px;
   font-size: 12px;
-  color: #2563EB;
+  color: #0b65fe;
   text-decoration: none;
 }
 
 .lead-detail-back:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .lead-detail-group {
@@ -432,7 +432,7 @@ body {
 .lead-detail-keywords {
   margin: 0 0 14px 0;
   font-size: 12px;
-  color: #2563EB;
+  color: #0b65fe;
   font-weight: 500;
 }
 
@@ -447,7 +447,7 @@ body {
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -455,7 +455,7 @@ body {
 }
 
 .btn-cta:hover {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 
 .btn-secondary {
@@ -564,13 +564,13 @@ body {
 }
 
 .group-name {
-  color: #2563EB;
+  color: #0b65fe;
   text-decoration: none;
 }
 
 .group-name:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .badge {
@@ -605,11 +605,11 @@ body {
   cursor: pointer;
 }
 .btn-track {
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
 }
 .btn-track:hover {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 .btn-untrack {
   background: #E5E7EB;
@@ -637,7 +637,7 @@ body {
 
 .detection-keyword {
   font-size: 11px;
-  color: #2563EB;
+  color: #0b65fe;
   font-weight: 500;
 }
 
@@ -658,7 +658,7 @@ body {
 .detection-new-badge {
   font-size: 10px;
   padding: 2px 6px;
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
   border-radius: 5px;
   font-weight: 600;
@@ -677,14 +677,14 @@ body {
   padding: 0;
   margin: 0 0 4px 0;
   font-size: 12px;
-  color: #2563EB;
+  color: #0b65fe;
   background: none;
   border: none;
   cursor: pointer;
 }
 .btn-back:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .detection-detail-group {
@@ -709,7 +709,7 @@ body {
 .detection-detail-keywords {
   margin: 0;
   font-size: 12px;
-  color: #2563EB;
+  color: #0b65fe;
   font-weight: 500;
 }
 
@@ -723,11 +723,11 @@ body {
   align-self: flex-start;
 }
 .btn-primary {
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
 }
 .btn-primary:hover {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 
 /* Collapsible section */

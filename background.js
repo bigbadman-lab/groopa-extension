@@ -413,7 +413,7 @@ async function updateUnreadBadge() {
     const list = await getDetections();
     const count = list.filter((d) => d.status === 'new').length;
     await chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
-    await chrome.action.setBadgeBackgroundColor({ color: '#1877f2' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#0b65fe' });
   } catch (e) {
     console.warn('[Groopa] updateUnreadBadge failed', e);
   }

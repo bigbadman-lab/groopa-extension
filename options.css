@@ -1,4 +1,4 @@
-/* Design system: background #F8FAFC, cards #FFF, border #E5E7EB, primary #111827, secondary #6B7280, brand #2563EB, success #16A34A, danger #DC2626 */
+/* Design system: background #F8FAFC, cards #FFF, border #E5E7EB, primary #111827, secondary #6B7280, brand #0b65fe, success #16A34A, danger #DC2626 */
 * {
   box-sizing: border-box;
 }
@@ -76,12 +76,12 @@ body {
 
 .nav-item--active {
   background: #EFF6FF;
-  color: #2563EB;
+  color: #0b65fe;
 }
 
 .nav-item--active:hover {
   background: #DBEAFE;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 /* Main content */
@@ -233,7 +233,7 @@ body {
 }
 
 .welcome-link:focus {
-  outline: 2px solid #2563EB;
+  outline: 2px solid #0b65fe;
   outline-offset: 2px;
 }
 
@@ -364,12 +364,12 @@ body {
 
 .summary-card--clickable:hover {
   background: #F9FAFB;
-  border-color: #2563EB;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+  border-color: #0b65fe;
+  box-shadow: 0 2px 6px rgba(11, 101, 254, 0.08);
 }
 
 .summary-card--clickable:focus {
-  outline: 2px solid #2563EB;
+  outline: 2px solid #0b65fe;
   outline-offset: 2px;
 }
 
@@ -412,8 +412,8 @@ body {
 
 /* Pinned Inbox card — primary working area */
 .card-pinned {
-  border-left: 4px solid #2563EB;
-  background: linear-gradient(to right, rgba(37, 99, 235, 0.06), transparent 16px);
+  border-left: 4px solid #0b65fe;
+  background: linear-gradient(to right, rgba(11, 101, 254, 0.06), transparent 16px);
 }
 
 .card-title-pinned {
@@ -426,7 +426,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #2563EB;
+  color: #0b65fe;
 }
 
 .card-title-icon svg {
@@ -502,8 +502,8 @@ body {
 
 .keyword-input:focus {
   outline: none;
-  border-color: #2563EB;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #0b65fe;
+  box-shadow: 0 0 0 3px rgba(11, 101, 254, 0.12);
 }
 
 .keywords-list {
@@ -693,12 +693,12 @@ body {
 }
 
 .btn-primary {
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 
 .btn-success {
@@ -783,7 +783,7 @@ body {
   background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
   border: 1px solid #93C5FD;
   border-radius: 12px;
-  border-left: 4px solid #2563EB;
+  border-left: 4px solid #0b65fe;
 }
 
 .groups-scanning-state__inner {
@@ -797,7 +797,7 @@ body {
   width: 24px;
   height: 24px;
   border: 2px solid #93C5FD;
-  border-top-color: #2563EB;
+  border-top-color: #0b65fe;
   border-radius: 50%;
   animation: groups-scanning-spin 0.7s linear infinite;
 }
@@ -900,12 +900,12 @@ body {
 .group-row--tracked {
   background: #EFF6FF;
   border-color: #93C5FD;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 1px rgba(11, 101, 254, 0.12);
 }
 
 .group-row--tracked:hover {
   background: #DBEAFE;
-  border-color: #60A5FA;
+  border-color: #3b82f6;
 }
 
 .group-info {
@@ -926,13 +926,13 @@ body {
 }
 
 .group-url a {
-  color: #2563EB;
+  color: #0b65fe;
   word-break: break-all;
 }
 
 .group-url a:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .group-meta {
@@ -1064,7 +1064,7 @@ body {
 
 .inbox-stat-new {
   margin-left: 10px;
-  color: #2563EB;
+  color: #0b65fe;
   font-weight: 500;
 }
 
@@ -1147,7 +1147,7 @@ body {
 
 .inbox-row-btn.inbox-row--selected {
   background: #FFFFFF;
-  border-left: 4px solid #2563EB;
+  border-left: 4px solid #0b65fe;
   padding-left: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -1236,7 +1236,7 @@ body {
   margin-bottom: 20px;
   font-size: 13px;
   font-weight: 500;
-  color: #2563EB;
+  color: #0b65fe;
   background: none;
   border: none;
   cursor: pointer;
@@ -1245,7 +1245,7 @@ body {
 
 .inbox-detail-content .inbox-back:hover {
   text-decoration: underline;
-  color: #1D4ED8;
+  color: #0952d9;
 }
 
 .inbox-detail-meta {
@@ -1311,12 +1311,12 @@ body {
 }
 
 .inbox-detail-actions .btn-primary {
-  background: #2563EB;
+  background: #0b65fe;
   color: #fff;
 }
 
 .inbox-detail-actions .btn-primary:hover {
-  background: #1D4ED8;
+  background: #0952d9;
 }
 
 .inbox-detail-actions .btn-secondary,
