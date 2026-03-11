@@ -421,29 +421,7 @@ async function runHeartbeatScan() {
       return;
     }
 
-    // Legacy: scan open tracked group tabs when managed monitoring is off
-    const trackedGroups = await getTrackedGroups();
-    if (trackedGroups.length === 0) {
-      scheduleScanHeartbeat();
-      return;
-    }
-    const tabs = await new Promise((resolve) => {
-      chrome.tabs.query({ url: 'https://*.facebook.com/*' }, resolve);
-    });
-    if (tabs && tabs.length > 0) {
-      for (let i = 0; i < tabs.length; i++) {
-        const tab = tabs[i];
-        if (!tab.id || !tab.url) continue;
-        if (!tabUrlMatchesTrackedGroup(tab.url, trackedGroups)) continue;
-        try {
-          await chrome.tabs.sendMessage(tab.id, { type: 'RUN_GROUP_SCAN' });
-        } catch (e) {
-          if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
-            console.warn('[Groopa] Heartbeat send to tab', tab.id, e.message);
-          }
-        }
-      }
-    }
+    // When monitoring is off, only reschedule; no scanning. Group scanning runs only via worker tabs when monitoring is on.
   } catch (err) {
     console.error('[Groopa] runHeartbeatScan error', err);
   } finally {
