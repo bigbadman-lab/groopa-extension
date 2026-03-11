@@ -6,10 +6,10 @@
   "permissions": ["storage", "alarms", "notifications", "tabs", "windows", "offscreen"],
   "host_permissions": ["https://*.facebook.com/*"],
   "icons": {
-    "16": "assets/icons/groopa_icon.png",
-    "32": "assets/icons/groopa_icon.png",
-    "48": "assets/icons/groopa_icon.png",
-    "128": "assets/icons/groopa_icon.png"
+    "16": "icons/groopa_icon.png",
+    "32": "icons/groopa_icon.png",
+    "48": "icons/groopa_icon.png",
+    "128": "icons/groopa_icon.png"
   },
   "background": {
     "service_worker": "background.js"
@@ -17,8 +17,8 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "assets/icons/groopa_icon.png",
-      "32": "assets/icons/groopa_icon.png"
+      "16": "icons/groopa_icon.png",
+      "32": "icons/groopa_icon.png"
     }
   },
   "options_page": "options.html",
