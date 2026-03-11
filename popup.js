@@ -89,15 +89,19 @@ function getExtensionStatus() {
 }
 
 // Header state: display "Monitoring Active" / "Monitoring Paused" + subline (strip styling in CSS)
-function getHeaderState(isPaidUser, trackedCount) {
+// Uses canonical monitoring state (monitoringEnabled) so popup and settings stay in sync.
+function getHeaderState(isPaidUser, trackedCount, monitoringEnabled) {
   const count = typeof trackedCount === 'number' ? trackedCount : 0;
   if (!isPaidUser) {
     return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Enable in Settings' };
   }
-  if (count > 0) {
-    return { status: 'Monitoring Active', stripClass: 'status-strip--active', subline: 'Tracking ' + count + ' group' + (count === 1 ? '' : 's') };
+  if (count === 0) {
+    return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Add groups in Settings' };
   }
-  return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Add groups in Settings' };
+  if (!monitoringEnabled) {
+    return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Start monitoring in Settings' };
+  }
+  return { status: 'Monitoring Active', stripClass: 'status-strip--active', subline: 'Tracking ' + count + ' group' + (count === 1 ? '' : 's') };
 }
 
 // Load from background (or fallback) and from storage, then render
@@ -114,8 +118,11 @@ async function loadAndRender() {
   const trackedCount = status && !status.error && status.selectedGroupCount != null
     ? status.selectedGroupCount
     : trackedGroupsList.length;
+  const monitoringEnabled = status && !status.error && status.monitoringEnabled !== undefined
+    ? status.monitoringEnabled === true
+    : (settings.monitoringState && settings.monitoringState.monitoringEnabled === true);
 
-  const header = getHeaderState(isPaidUser, trackedCount);
+  const header = getHeaderState(isPaidUser, trackedCount, monitoringEnabled);
   if (headerStatusEl) {
     headerStatusEl.textContent = header.status;
   }
@@ -264,6 +271,13 @@ if (leadDetailAiBtn) {
 }
 
 loadAndRender();
+
+// Keep popup in sync with settings: when monitoring state changes (e.g. Start/Stop in options), refresh
+chrome.storage.onChanged.addListener(function (changes, areaName) {
+  if (areaName === 'local' && changes && changes.monitoringState) {
+    loadAndRender();
+  }
+});
 
 // Collapsible "Setup & debug" section
 if (toggleMoreBtn && collapsibleContent && collapsibleSection) {

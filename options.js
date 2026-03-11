@@ -990,6 +990,9 @@ async function refreshInboxFromStorage() {
 chrome.storage.onChanged.addListener(function (changes, areaName) {
   if (!changes) return;
   if (areaName === 'local') {
+    if (changes.monitoringState) {
+      refreshMonitorStatus();
+    }
     if (changes.detections) {
       refreshInboxFromStorage();
     }

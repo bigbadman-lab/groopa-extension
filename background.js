@@ -555,9 +555,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const selectedCount = settings.trackedGroups.length;
         const latest = activityLog.length > 0 ? activityLog[activityLog.length - 1] : null;
         const pagePostCandidates = await getPagePostCandidates();
+        const mon = settings.monitoringState != null ? settings.monitoringState : {};
+        const monitoringEnabled = mon.monitoringEnabled === true;
         sendResponse({
           isPaidUser: settings.isPaidUser,
           soundEnabled: settings.soundEnabled,
+          monitoringEnabled,
           keywordCount: settings.keywords.length,
           selectedGroupCount: selectedCount,
           detectedGroupCount: detectedGroups.length,
@@ -695,12 +698,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
           const postText = (c && c.postText != null) ? String(c.postText) : '';
           const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
-          const fullTextRaw = [postText, commentText].filter(Boolean).join(' ').trim();
-          const fullText = fullTextRaw.length > 0 ? fullTextRaw.slice(0, MAX_FULL_TEXT_LEN) : textPreview;
-          if (i === 0 && textPreview.length > 0) {
-            console.log('[Groopa] [text-pipeline] background received textPreview first80=', textPreview.slice(0, 80));
+          const matchText = postText.trim();
+          if (matchText.length === 0) continue;
+          const textForMatch = matchText.length > MAX_FULL_TEXT_LEN ? matchText.slice(0, MAX_FULL_TEXT_LEN) : matchText;
+          if (i === 0) {
+            console.log('[Groopa] [text-pipeline] background matching on postText first80=', textForMatch.slice(0, 80));
           }
-          const matchedKeywords = getMatchingKeywordsV1(fullText, keywords);
+          const matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords);
           if (matchedKeywords.length === 0) continue;
 
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
@@ -712,14 +716,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             textPreview: textPreview,
             matchedKeywords: matchedKeywords,
           });
-          let matchSource = 'post';
-          if (postText || commentText) {
-            const normPost = normalizeTextForKeywordMatch(postText);
-            const normComment = normalizeTextForKeywordMatch(commentText);
-            const inPost = matchedKeywords.some((kw) => keywordMatchesText(normPost, kw));
-            const inComment = matchedKeywords.some((kw) => keywordMatchesText(normComment, kw));
-            matchSource = inPost && inComment ? 'both' : inComment ? 'comment' : 'post';
-          }
           newDetections.push({
             matchedKeywords,
             textPreview,
@@ -727,7 +723,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             groupIdentifier,
             pageUrl,
             postUrl: postUrl,
-            matchSource: matchSource,
+            matchSource: 'post',
             createdAt: now,
             source: 'page_scan',
             type: 'keyword_match',
