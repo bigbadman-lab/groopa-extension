@@ -150,18 +150,21 @@
               <div class="inbox-detail-content" id="inbox-detail-content" hidden>
                 <button type="button" id="inbox-detail-back" class="btn-link inbox-back">&#8592; Back to list</button>
                 <div class="inbox-detail-meta">
-                  <p class="inbox-detail-group" id="inbox-detail-group"></p>
+                  <h3 class="inbox-detail-group" id="inbox-detail-group"></h3>
                   <p class="inbox-detail-time" id="inbox-detail-time"></p>
-                  <p class="inbox-detail-keywords" id="inbox-detail-keywords"></p>
+                  <div class="inbox-detail-keywords" id="inbox-detail-keywords"></div>
                 </div>
-                <div class="inbox-detail-post" id="inbox-detail-text"></div>
+                <div class="inbox-detail-post-wrap">
+                  <div class="inbox-detail-post" id="inbox-detail-text"></div>
+                </div>
                 <div class="inbox-detail-actions">
                   <button type="button" id="inbox-detail-ai-btn" class="btn btn-primary">Generate AI Reply</button>
                   <a id="inbox-open-post" href="#" target="_blank" rel="noopener" class="btn btn-secondary inbox-open-link">Open Facebook Post</a>
                 </div>
                 <div class="inbox-reply-section">
-                  <span class="inbox-reply-label" id="inbox-reply-label">Generated reply</span>
-                  <div id="inbox-reply-text" class="inbox-reply-text" aria-readonly="true" aria-labelledby="inbox-reply-label">Reply will appear here after you click Generate AI Reply.</div>
+                  <h4 class="inbox-reply-label" id="inbox-reply-label">Suggested reply</h4>
+                  <p class="inbox-reply-hint">Generate a reply, then copy it to use in Facebook.</p>
+                  <div id="inbox-reply-text" class="inbox-reply-text" aria-readonly="true" aria-labelledby="inbox-reply-label">Click "Generate AI Reply" to create a suggested reply for this lead.</div>
                   <div class="inbox-reply-actions">
                     <button type="button" id="inbox-copy-reply" class="btn btn-secondary">Copy Reply</button>
                   </div>

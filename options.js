@@ -97,6 +97,25 @@ function escapeOpt(str) {
     .replace(/'/g, '&#39;');
 }
 
+/** Strip confusing leading " (5)" style prefix from group name for display. */
+function stripGroupDisplayName(label) {
+  if (label == null || typeof label !== 'string') return '';
+  return String(label).replace(/^\s*\(\d+\)\s*/, '').trim() || label;
+}
+
+/** Wrap first occurrence of keyword in snippet with highlight span; returns HTML string. */
+function snippetWithKeywordHighlight(snippet, keyword) {
+  if (!snippet || typeof snippet !== 'string') return escapeOpt(snippet);
+  const kw = (keyword != null && typeof keyword === 'string') ? keyword.trim() : '';
+  if (!kw) return escapeOpt(snippet);
+  const idx = snippet.toLowerCase().indexOf(kw.toLowerCase());
+  if (idx === -1) return escapeOpt(snippet);
+  const before = snippet.slice(0, idx);
+  const match = snippet.slice(idx, idx + kw.length);
+  const after = snippet.slice(idx + kw.length);
+  return escapeOpt(before) + '<span class="inbox-row-keyword-highlight">' + escapeOpt(match) + '</span>' + escapeOpt(after);
+}
+
 /**
  * Validate and parse a Facebook group URL. Returns { slug, url } or null if invalid.
  */
@@ -729,15 +748,18 @@ function renderInbox() {
     return;
   }
 
-  const snippetLen = 72;
+  const snippetLen = 80;
   inboxListEl.innerHTML = list
     .map((d, index) => {
-      const groupLabel = escapeOpt(d.groupName || d.groupIdentifier || 'Group');
+      const groupRaw = d.groupName || d.groupIdentifier || 'Group';
+      const groupLabel = escapeOpt(stripGroupDisplayName(groupRaw));
       const rawText = d.text != null ? d.text : (d.textPreview != null ? d.textPreview : '');
       const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
       const snippet = text.length > snippetLen ? text.slice(0, snippetLen) + '…' : text;
-      const keywordLabel = escapeOpt(d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : ''));
-      const dateStr = formatOptDate(d.createdAt);
+      const keywordLabel = d.keywordMatched != null ? d.keywordMatched : (Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : '');
+      const firstKeyword = (Array.isArray(d.matchedKeywords) && d.matchedKeywords[0]) ? d.matchedKeywords[0] : (keywordLabel ? String(keywordLabel).split(',')[0].trim() : '');
+      const snippetHtml = snippetWithKeywordHighlight(snippet, firstKeyword);
+      const keywordTag = keywordLabel ? '<span class="inbox-row-keyword-tag">' + escapeOpt(String(keywordLabel).split(',')[0].trim() || keywordLabel) + '</span>' : '';
       const relativeTime = formatRelativeTime(d.createdAt);
       const isUnread = d.status === 'new';
       const fp = (d.fingerprint != null ? String(d.fingerprint) : '') || 'idx-' + index;
@@ -747,10 +769,8 @@ function renderInbox() {
           <span class="inbox-row-group">${groupLabel}</span>
           <span class="inbox-row-date">${escapeOpt(relativeTime)}</span>
         </div>
-        <div class="inbox-row-snippet">${escapeOpt(snippet)}</div>
-        <div class="inbox-row-meta">
-          <span class="inbox-row-keyword">${keywordLabel}</span>
-        </div>
+        <div class="inbox-row-snippet">${snippetHtml}</div>
+        <div class="inbox-row-meta">${keywordTag}</div>
       </button>`;
     })
     .join('');
@@ -783,15 +803,18 @@ function renderInbox() {
 function showInboxDetailContent(detection) {
   if (!detection) return;
   generatedReplyText = '';
-  const groupLabel = detection.groupName || detection.groupIdentifier || 'Group';
+  const groupLabel = stripGroupDisplayName(detection.groupName || detection.groupIdentifier || 'Group');
   const rawText = detection.text != null ? detection.text : (detection.textPreview != null ? detection.textPreview : '');
   const text = typeof cleanLeadDisplayText === 'function' ? cleanLeadDisplayText(rawText) : rawText;
   const keywordLabel = detection.keywordMatched != null ? detection.keywordMatched : (Array.isArray(detection.matchedKeywords) ? detection.matchedKeywords.join(', ') : '');
+  const firstKw = (Array.isArray(detection.matchedKeywords) && detection.matchedKeywords[0]) ? detection.matchedKeywords[0] : (keywordLabel ? String(keywordLabel).split(',')[0].trim() : keywordLabel);
   if (inboxDetailGroup) inboxDetailGroup.textContent = groupLabel;
   if (inboxDetailTime) inboxDetailTime.textContent = 'Detected ' + formatOptDate(detection.createdAt);
-  if (inboxDetailKeywords) inboxDetailKeywords.textContent = 'Matched: ' + keywordLabel;
+  if (inboxDetailKeywords) {
+    inboxDetailKeywords.innerHTML = firstKw ? '<span class="inbox-detail-keyword-tag">' + escapeOpt(firstKw) + '</span>' : '';
+  }
   if (inboxDetailText) inboxDetailText.textContent = text || '—';
-  if (inboxReplyTextEl) inboxReplyTextEl.textContent = 'Reply will appear here after you click Generate AI Reply.';
+  if (inboxReplyTextEl) inboxReplyTextEl.textContent = 'Click "Generate AI Reply" to create a suggested reply for this lead.';
   if (inboxOpenPostLink) {
     const openUrl = detection.postUrl || detection.pageUrl || '#';
     inboxOpenPostLink.href = openUrl;
