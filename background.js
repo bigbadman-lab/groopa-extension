@@ -736,6 +736,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const seenPostUrlsThisBatch = new Set();
 
         const MAX_FULL_TEXT_LEN = 10000;
+        /* Matching and lead creation use only original post text; comment content is never used. */
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;

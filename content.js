@@ -593,25 +593,12 @@
   }
 
   /**
-   * Get post text and optional comment text from node. Post = main node only (nested articles removed); comments = nested [role="article"].
-   * Returns { combined, postText, commentText }. Detection uses only postText; commentText is not used for lead creation.
+   * Get original post text only. Nested [role="article"] (comments/replies) are excluded. Used for all detection and previews.
    */
-  function getPostAndCommentText(node) {
+  function getPostTextOnly(node) {
     const nestedArticles = node.querySelectorAll ? node.querySelectorAll('[role="article"]') : [];
     const postText = nestedArticles.length > 0 ? getPostOnlyText(node) : getTextFromNode(node);
-    const postTrimmed = postText.trim();
-    if (nestedArticles.length === 0) return { combined: postTrimmed, postText: postTrimmed, commentText: '' };
-    const commentParts = [];
-    for (let j = 0; j < nestedArticles.length; j++) {
-      const t = getTextFromNode(nestedArticles[j]);
-      if (t.length > 0) commentParts.push(t);
-    }
-    const commentText = commentParts.join(' ').trim();
-    const combined = commentText.length > 0 ? (postTrimmed + ' ' + commentText) : postTrimmed;
-    if (combined.length > 0) {
-      console.log(PREFIX, '[text-pipeline] getPostAndCommentText combined first80=', combined.slice(0, 80));
-    }
-    return { combined: combined, postText: postTrimmed, commentText: commentText };
+    return (postText != null ? String(postText) : '').trim();
   }
 
   /**
@@ -660,8 +647,7 @@
   function countNodesWithText(nodes) {
     var count = 0;
     for (var j = 0; j < nodes.length; j++) {
-      var postOnly = (getPostAndCommentText(nodes[j]).postText || '').trim();
-      if (isLikelyRealPostText(postOnly)) count++;
+      if (isLikelyRealPostText(getPostTextOnly(nodes[j]))) count++;
     }
     return count;
   }
@@ -686,7 +672,7 @@
     return { nodes: [], selector: 'none' };
   }
 
-  /** Post-only extraction: only original post text is used for validation, dedupe, and preview. Comments are not scanned or used for detection. */
+  /** Post-only extraction. Comments are not scanned or used. */
   function extractVisiblePostCandidates() {
     const { nodes, selector } = findBestPostNodes();
     const nodeCount = nodes.length;
@@ -695,8 +681,7 @@
 
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
-      const { postText: rawPost } = getPostAndCommentText(node);
-      const postTrimmed = (rawPost != null ? String(rawPost) : '').trim();
+      const postTrimmed = getPostTextOnly(node);
       const len = postTrimmed.length;
       const preview = (postTrimmed.slice(0, 80) || '(empty)') + (postTrimmed.length > 80 ? '…' : '');
 

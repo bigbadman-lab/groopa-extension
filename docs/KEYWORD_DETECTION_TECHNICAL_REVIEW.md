@@ -27,10 +27,10 @@ All extraction happens in the **content script**, which runs on Facebook pages.
 |----------|------|------|
 | **getTextFromNode(node)** | content.js ~572 | Gets raw text: `node.innerText` or `node.textContent`, then `.trim()` and `.replace(/\s+/g, ' ')` (collapse whitespace). No stripping of leading/trailing words. |
 | **getPostOnlyText(node)** | content.js ~585 | Clones node, removes nested `[role="article"]` (comments/replies), then `getTextFromNode(clone)`. Used when the node has nested articles so the “post” part is isolated. |
-| **getPostAndCommentText(node)** | content.js ~600 | Splits post vs comments: post = `getPostOnlyText(node)` or `getTextFromNode(node)`; comments = text from each nested `[role="article"]` via `getTextFromNode`. Returns `{ combined, postText, commentText }` where `combined` = post + comments (space-joined). |
-| **extractVisiblePostCandidates()** | content.js ~689 | Uses `findBestPostNodes()` (tries several selectors, picks one with readable text). For each node: `getPostAndCommentText(node)` → `cleaned` = combined text; filters with `isLikelyRealPostText(cleaned)`; dedupes by `cleaned.slice(0,200).toLowerCase()`; builds **textPreview** = `cleaned` or `cleaned.slice(0, MAX_PREVIEW_LEN) + '…'` (MAX_PREVIEW_LEN = 150). Sends **candidates** with `textPreview`, `postUrl`, `postText`, `commentText`. |
+| **getPostTextOnly(node)** | content.js | Returns original post text only: `getPostOnlyText(node)` when node has nested `[role="article"]`, else `getTextFromNode(node)`. Comments are not scanned or used. |
+| **extractVisiblePostCandidates()** | content.js | Uses `findBestPostNodes()`. For each node: `getPostTextOnly(node)` → post-only text; filters with `isLikelyRealPostText(postTrimmed)`; dedupes by post text slice; **textPreview** = post-only (or slice + '…'). Sends **candidates** with `textPreview`, `postUrl`, `postText` (no comment content). |
 
-**Cleaning/normalization in content script:** Only trim and collapse spaces. No lowercase, no punctuation stripping, no stemming. The **text sent to the background** is “raw” post+comment text (or first 150 chars for preview), not normalized for matching; normalization is done in the background.
+**Cleaning/normalization in content script:** Only trim and collapse spaces. No lowercase, no punctuation stripping, no stemming. The **text sent to the background** is “raw” post-only (no comment content); normalization is done in the background.
 
 ---
 
@@ -72,14 +72,12 @@ function normalizeTextForFingerprint(text) {
 
 **Matching logic:** Substring containment: the **normalized** post text is searched for the **normalized** keyword using `indexOf`. No word boundaries, no regex, no stemming, no typo tolerance. If the user’s keyword is stored as `"plumber"`, only the string `"plumber"` (after the same normalization) is sought in the normalized text.
 
-**Where it’s called:** In the `PAGE_POST_CANDIDATES_DETECTED` handler (background.js ~612–620):
+**Where it’s called:** In the `PAGE_POST_CANDIDATES_DETECTED` handler (background.js):
 
-- `textPreview` = candidate’s full text preview (string).
-- `normalized = normalizeTextForFingerprint(textPreview)`.
-- `matchedKeywords = getMatchingKeywords(normalized, settings.keywords)`.
+- Match on **postText** only: `matchText = postText.trim()`, `matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords)`.
 - If `matchedKeywords.length === 0` the candidate is skipped; otherwise a detection is built and later deduped and stored.
 
-Match source (post vs comment) is determined by checking whether each matched keyword appears in normalized post text and/or normalized comment text (same `indexOf` + `normalizeTextForFingerprint`), for display only.
+Matching and lead creation use postText only; comment content is never used.
 
 ---
 
@@ -89,9 +87,9 @@ Match source (post vs comment) is determined by checking whether each matched ke
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 1. CONTENT SCRIPT (content.js) — Facebook page                                   │
 │    • findBestPostNodes() → [role="article"] (or fallback selectors)              │
-│    • For each node: getPostAndCommentText() → { combined, postText, commentText }│
+│    • For each node: getPostTextOnly(node) → post-only text (no comments)        │
 │    • getTextFromNode / getPostOnlyText: innerText/textContent, trim, \s+ → ' '   │
-│    • extractVisiblePostCandidates(): textPreview = combined or combined[0:150]+'…'│
+│    • extractVisiblePostCandidates(): textPreview = post-only (or slice + '…')    │
 │    • runPostCandidateScan() → chrome.runtime.sendMessage(                        │
 │        { type: 'PAGE_POST_CANDIDATES_DETECTED', candidates, sourceContext } )     │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -101,13 +99,11 @@ Match source (post vs comment) is determined by checking whether each matched ke
 │ 2. BACKGROUND (background.js) — PAGE_POST_CANDIDATES_DETECTED                    │
 │    • settings = await getSettings()  →  keywords = settings.keywords             │
 │    • If group not tracked → return                                               │
-│    • Optional: feed fingerprint early-exit (skip if feed unchanged)             │
-│    • For each candidate:                                                         │
-│        textPreview = c.textPreview                                               │
-│        normalized = normalizeTextForFingerprint(textPreview)   [storage.js]      │
-│        matchedKeywords = getMatchingKeywords(normalized, keywords)              │
+│    • For each candidate: match on postText only (comment content ignored)        │
+│        matchText = c.postText; textForMatch = truncate if needed                 │
+│        matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords)            │
 │    • If matchedKeywords.length === 0 → skip candidate                            │
-│    • Else: build fingerprint (buildDetectionFingerprint), push to newDetections │
+│    • Else: build fingerprint, push to newDetections (textPreview/postText only)  │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                         │
                                         ▼
@@ -129,7 +125,7 @@ Match source (post vs comment) is determined by checking whether each matched ke
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Data flow summary:** Raw DOM text → combined string (post + comments) → optional truncation to 150 chars as `textPreview` → sent to background → **normalizeTextForFingerprint(textPreview)** → **getMatchingKeywords(normalized, keywords)** (substring match on normalized text) → if any match, detection created → appendDetectionsIfNew (dedupe) → store → optional notification with display-cleaned preview.
+**Data flow summary:** Raw DOM → **post-only text** (getPostTextOnly; no comment scanning) → textPreview/postText → sent to background → match on **postText** only → getMatchingKeywordsV1 → if match, detection created → appendDetectionsIfNew (dedupe) → store → notification with post-only preview.
 
 ---
 
@@ -144,7 +140,7 @@ Match source (post vs comment) is determined by checking whether each matched ke
 | **No typo tolerance** | “plumer”, “plumbur” never match “plumber”. |
 | **Truncation** | content.js sends at most 150 characters as `textPreview`. Matching runs on that truncated string. Long posts: only the first 150 chars are matched; keywords appearing only later are missed. |
 | **Duplicate detections** | Handled by **appendDetectionsIfNew** (fingerprint + postUrl/canonical key). Same post in same group with same matched keywords → one lead. Different groups or different fingerprint (e.g. text preview changed) could theoretically create duplicates; in practice dedupe is strong. |
-| **Match source** | “Post” vs “comment” is inferred by checking normalized post and comment text separately with the same indexOf logic; no weakness beyond the above. |
+| **Match source (post-only)** | “Post” vs “comment” Only original post text is used; comments are not scanned or matched. |
 
 ---
 
@@ -204,7 +200,7 @@ Match source (post vs comment) is determined by checking whether each matched ke
 | Keyword storage (read/write) | storage.js | getSettings, saveSettings, DEFAULTS.keywords, SYNC_KEYS |
 | Text normalization for matching | storage.js | normalizeTextForFingerprint |
 | Keyword matching | background.js | getMatchingKeywords |
-| Post text extraction | content.js | getTextFromNode, getPostOnlyText, getPostAndCommentText, extractVisiblePostCandidates |
+| Post text extraction | content.js | getTextFromNode, getPostOnlyText, getPostTextOnly, extractVisiblePostCandidates (post-only) |
 | Candidate handling & match call | background.js | PAGE_POST_CANDIDATES_DETECTED handler (settings.keywords, normalizeTextForFingerprint, getMatchingKeywords) |
 | Dedupe & persistence | storage.js | appendDetectionsIfNew, buildDetectionFingerprint, getCanonicalLeadKey, getFingerprintContentPart |
 | Notifications | background.js | handleNewLeadAlert, cleanLeadDisplayText (storage.js) for preview text |

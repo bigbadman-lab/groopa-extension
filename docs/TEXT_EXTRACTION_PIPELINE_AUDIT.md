@@ -12,8 +12,8 @@
 |------|----------|------|
 | **content.js** | `getTextFromNode(node)` | Raw text from node: `innerText`/`textContent` → trim → collapse whitespace. |
 | **content.js** | `getPostOnlyText(node)` | Clone, remove nested `[role="article"]`, then `getTextFromNode(clone)`. |
-| **content.js** | `getPostAndCommentText(node)` | Splits post vs comments, returns `{ combined, postText, commentText }`. |
-| **content.js** | `extractVisiblePostCandidates()` | Builds candidates: `textPreview` (combined, or slice 0..150 + '…'), `postUrl`, `postText`, `commentText`. |
+| **content.js** | `getPostTextOnly(node)` | Returns original post text only; comments are not scanned or used. |
+| **content.js** | `extractVisiblePostCandidates()` | Builds candidates from post-only text: `textPreview`, `postUrl`, `postText` (no comment content). |
 | **content.js** | `runPostCandidateScan()` | Calls `extractVisiblePostCandidates`, sends `PAGE_POST_CANDIDATES_DETECTED` with `candidates`. |
 | **background.js** | `PAGE_POST_CANDIDATES_DETECTED` handler | Receives `candidates`; uses `c.textPreview` for keyword matching and for `newDetections` (`textPreview`, `text`). |
 | **background.js** | Notification preview | `preview = cleanLeadDisplayText(rawPreview).slice(0, 80)`. |
@@ -29,9 +29,9 @@
 ```
 1. content.js
    Raw DOM (article node)
-   → getTextFromNode / getPostOnlyText / getPostAndCommentText
-   → combined = postTrimmed + optional commentText
-   → extractVisiblePostCandidates: textPreview = combined (or combined.slice(0,150)+'…')
+   → getTextFromNode / getPostOnlyText / getPostTextOnly
+   → post-only text (no comment content)
+   → extractVisiblePostCandidates: textPreview = post-only (or slice + '…')
    → candidates[] sent via PAGE_POST_CANDIDATES_DETECTED
 
 2. background.js
@@ -81,7 +81,7 @@ All logs use the prefix `[Groopa]` or the content script `PREFIX` plus `[text-pi
 | Location | Log |
 |----------|-----|
 | **content.js** `getTextFromNode` | `[text-pipeline] getTextFromNode raw first80= … → out first80= …` (when non-empty). |
-| **content.js** `getPostAndCommentText` | `[text-pipeline] getPostAndCommentText combined first80= …` (when non-empty). |
+| **content.js** | Post-only extraction; no combined/comment log. |
 | **content.js** `extractVisiblePostCandidates` | `[text-pipeline] candidate textPreview first80= …` (per candidate). |
 | **background.js** `PAGE_POST_CANDIDATES_DETECTED` | `[text-pipeline] background received textPreview first80= …` (first candidate only). |
 | **storage.js** `cleanLeadDisplayText` | `[text-pipeline] cleanLeadDisplayText in first80= … out first80= … leadingStripped= true/false` (only when output differs from input or leading prefix was stripped). |
