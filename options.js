@@ -63,8 +63,6 @@ const telegramEnabledCheckbox = document.getElementById('telegram-enabled');
 const telegramStatusTextEl = document.getElementById('telegram-status-text');
 const telegramConnectBtn = document.getElementById('telegram-connect-btn');
 
-const MAX_TRACKED_GROUPS = 30;
-
 let detectedGroupsList = [];
 let trackedGroupsList = [];
 let keywordList = [];
