@@ -63,6 +63,8 @@ const telegramEnabledCheckbox = document.getElementById('telegram-enabled');
 const telegramStatusTextEl = document.getElementById('telegram-status-text');
 const telegramConnectBtn = document.getElementById('telegram-connect-btn');
 
+const MAX_TRACKED_GROUPS = 30;
+
 let detectedGroupsList = [];
 let trackedGroupsList = [];
 let keywordList = [];
@@ -509,6 +511,10 @@ if (addGroupBtn && addGroupUrlInput) {
       if (addGroupErrorEl) addGroupErrorEl.textContent = 'Please enter a valid Facebook group URL (e.g. https://www.facebook.com/groups/...).';
       return;
     }
+    if (trackedGroupsList.length >= MAX_TRACKED_GROUPS) {
+      if (addGroupErrorEl) addGroupErrorEl.textContent = 'You can track up to 30 groups. Untrack a group to add another.';
+      return;
+    }
     const group = { id: parsed.slug, name: '', url: parsed.url };
     try {
       await upsertDetectedGroup({ ...group, slug: parsed.slug, source: 'manual' });
@@ -619,10 +625,12 @@ function renderDetectedGroups() {
     const bTime = b && b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
     return bTime - aTime;
   });
+  const atTrackLimit = trackedGroupsList.length >= MAX_TRACKED_GROUPS;
   detectedGroupsEl.innerHTML = list
     .map(
       (g, index) => {
         const tracked = isTracked(g.id);
+        const disableTrack = !tracked && atTrackLimit;
         return `<div class="group-row${tracked ? ' group-row--tracked' : ''}" data-index="${index}" role="button" tabindex="0" aria-pressed="${tracked}" aria-label="Toggle track ${escapeOpt(g.name || 'group')}">
           <div class="group-info">
             <div class="group-name">${escapeOpt(g.name || '')}</div>
@@ -632,7 +640,7 @@ function renderDetectedGroups() {
           <div class="group-row-actions">
             ${tracked ? '<span class="group-row-badge">Tracking</span>' : ''}
             <div class="track-option">
-              <input type="checkbox" id="track-${index}" ${tracked ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" aria-hidden="true" tabindex="-1" />
+              <input type="checkbox" id="track-${index}" ${tracked ? 'checked' : ''} ${disableTrack ? 'disabled' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" aria-hidden="true" tabindex="-1" />
               <span class="track-option-label">Track</span>
             </div>
           </div>
@@ -648,6 +656,17 @@ function renderDetectedGroups() {
       const url = cb.dataset.url || '';
       if (!id) return;
       if (cb.checked) {
+        if (trackedGroupsList.length >= MAX_TRACKED_GROUPS) {
+          cb.checked = false;
+          if (monitorValidationMsg) {
+            const title = monitorValidationMsg.querySelector('.monitor-validation-title');
+            const body = monitorValidationMsg.querySelector('.monitor-validation-body');
+            if (title) title.textContent = 'Tracking limit reached';
+            if (body) body.textContent = 'You can track up to 30 groups. Untrack a group to add another.';
+            monitorValidationMsg.hidden = false;
+          }
+          return;
+        }
         if (!trackedGroupsList.some((g) => String(g.id) === id)) {
           trackedGroupsList.push({ id, name, url });
           await saveTrackedGroups(trackedGroupsList);

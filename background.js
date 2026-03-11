@@ -271,6 +271,81 @@ function getGroupUrlForRotation(group) {
   return null;
 }
 
+/** Worker count from tracked group count: 1–5 → 1, 6–12 → 2, 13–20 → 3, 21–30 → 4, max 4. */
+function getWorkerCount(trackedGroupCount) {
+  const n = Math.min(30, Math.max(0, trackedGroupCount));
+  if (n <= 5) return 1;
+  if (n <= 12) return 2;
+  if (n <= 20) return 3;
+  return 4;
+}
+
+/** Split groups evenly across workers. Returns array of arrays (one per worker). */
+function splitGroupsForWorkers(groups, workerCount) {
+  if (!Array.isArray(groups) || workerCount < 1) return [];
+  const list = groups.slice();
+  const chunks = [];
+  for (let i = 0; i < workerCount; i++) {
+    const start = Math.floor((i * list.length) / workerCount);
+    const end = Math.floor(((i + 1) * list.length) / workerCount);
+    chunks.push(list.slice(start, end));
+  }
+  return chunks.filter((c) => c.length > 0);
+}
+
+/** Resolve when tab status is 'complete' or timeout. */
+function waitForTabLoad(tabId, timeoutMs) {
+  timeoutMs = timeoutMs || 25000;
+  return new Promise((resolve) => {
+    const done = () => {
+      try {
+        chrome.tabs.onUpdated.removeListener(listener);
+      } catch (_) {}
+      clearTimeout(timer);
+      resolve();
+    };
+    const listener = (id, change) => {
+      if (id === tabId && change.status === 'complete') done();
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+    const timer = setTimeout(done, timeoutMs);
+    chrome.tabs.get(tabId).then((tab) => {
+      if (tab && tab.status === 'complete') done();
+    }).catch(done);
+  });
+}
+
+/**
+ * Ensure the monitor window has exactly workerCount tabs (reuse or create/remove). Tabs created with active: false.
+ * Returns { workerTabIds } of length workerCount.
+ */
+async function ensureMonitorWorkers(windowId, workerCount) {
+  if (workerCount < 1) return { workerTabIds: [] };
+  const existingTabs = await chrome.tabs.query({ windowId });
+  let tabIds = (existingTabs || []).map((t) => t.id).filter((id) => id != null);
+
+  if (tabIds.length > workerCount) {
+    for (let i = workerCount; i < tabIds.length; i++) {
+      try {
+        await chrome.tabs.remove(tabIds[i]);
+      } catch (_) {}
+    }
+    tabIds = tabIds.slice(0, workerCount);
+  }
+  while (tabIds.length < workerCount) {
+    const tab = await chrome.tabs.create({ windowId, url: 'about:blank', active: false });
+    if (tab && tab.id != null) tabIds.push(tab.id);
+    else break;
+  }
+  const workerTabIds = tabIds.slice(0, workerCount);
+  const state = await getMonitoringState();
+  const workerCurrentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length === workerCount
+    ? state.workerCurrentIndices
+    : workerTabIds.map(() => 0);
+  await updateMonitoringState({ workerTabIds, workerCurrentIndices, monitorTabId: workerTabIds[0] || state.monitorTabId });
+  return { workerTabIds };
+}
+
 async function runHeartbeatScan() {
   try {
     const state = await getMonitoringState();
@@ -281,22 +356,45 @@ async function runHeartbeatScan() {
         scheduleScanHeartbeat();
         return;
       }
-      const { windowId } = await ensureMonitorWindow();
-      const { tabId } = await ensureMonitorTab(windowId);
-      const idx = state.nextTrackedGroupIndex % trackedGroups.length;
-      const group = trackedGroups[idx];
-      const url = getGroupUrlForRotation(group);
-      if (url) {
-        await chrome.tabs.update(tabId, { url });
-        const nextIdx = (idx + 1) % trackedGroups.length;
-        await updateMonitoringState({
-          nextTrackedGroupIndex: nextIdx,
-          monitorLastRunAt: new Date().toISOString(),
-        });
-      } else {
-        const nextIdx = (idx + 1) % trackedGroups.length;
-        await updateMonitoringState({ nextTrackedGroupIndex: nextIdx });
+      const workerCount = getWorkerCount(trackedGroups.length);
+      const assignments = splitGroupsForWorkers(trackedGroups, workerCount);
+      if (assignments.length === 0) {
+        scheduleScanHeartbeat();
+        return;
       }
+      const { windowId } = await ensureMonitorWindow();
+      const { workerTabIds } = await ensureMonitorWorkers(windowId, workerCount);
+      const currentIndices = state.workerCurrentIndices && state.workerCurrentIndices.length >= workerCount
+        ? state.workerCurrentIndices.slice(0, workerCount)
+        : workerTabIds.map(() => 0);
+
+      for (let w = 0; w < workerTabIds.length; w++) {
+        const groups = assignments[w];
+        if (!groups || groups.length === 0) continue;
+        const idx = currentIndices[w] % groups.length;
+        const group = groups[idx];
+        const url = getGroupUrlForRotation(group);
+        if (url) {
+          try {
+            await chrome.tabs.update(workerTabIds[w], { url, active: false });
+          } catch (_) {}
+        }
+      }
+
+      await Promise.all(workerTabIds.map((id) => waitForTabLoad(id)));
+
+      for (let w = 0; w < workerTabIds.length; w++) {
+        try {
+          await chrome.tabs.sendMessage(workerTabIds[w], { type: 'RUN_GROUP_SCAN' });
+        } catch (e) {
+          if (e && e.message && e.message.indexOf('Receiving end does not exist') === -1) {
+            console.warn('[Groopa] RUN_GROUP_SCAN worker', workerTabIds[w], e.message);
+          }
+        }
+      }
+
+      const nextIndices = assignments.map((arr, w) => (currentIndices[w] + 1) % Math.max(1, arr.length));
+      await updateMonitoringState({ workerCurrentIndices: nextIndices, monitorLastRunAt: new Date().toISOString() });
       scheduleScanHeartbeat();
       return;
     }
@@ -714,7 +812,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
           const postText = (c && c.postText != null) ? String(c.postText) : '';
-          const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
           const matchText = postText.trim();
           if (matchText.length === 0) continue;
           const textForMatch = matchText.length > MAX_FULL_TEXT_LEN ? matchText.slice(0, MAX_FULL_TEXT_LEN) : matchText;
@@ -928,8 +1025,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         await updateMonitoringState({ monitoringEnabled: true });
+        const trackedGroups = await getTrackedGroups();
+        const workerCount = getWorkerCount(trackedGroups.length);
         const { windowId } = await ensureMonitorWindow();
-        await ensureMonitorTab(windowId);
+        await ensureMonitorWorkers(windowId, workerCount);
         runHeartbeatScan();
         sendResponse({ ok: true });
       } catch (err) {
@@ -943,7 +1042,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STOP_MONITORING') {
     (async () => {
       try {
-        await updateMonitoringState({ monitoringEnabled: false });
+        const state = await getMonitoringState();
+        if (state.monitorWindowId != null) {
+          try {
+            await chrome.windows.remove(state.monitorWindowId);
+          } catch (_) {}
+        }
+        await updateMonitoringState({
+          monitoringEnabled: false,
+          monitorWindowId: null,
+          monitorTabId: null,
+          workerTabIds: [],
+          workerCurrentIndices: [],
+        });
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[Groopa] STOP_MONITORING error', err);

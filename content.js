@@ -593,9 +593,8 @@
   }
 
   /**
-   * Get combined text from post node and comment/reply nodes without double-counting.
-   * Post text = main node content only (nested articles removed from a clone). Comment text = nested [role="article"] only.
-   * Returns { combined, postText, commentText } so callers can use combined for matching and optionally pass breakdown for matchSource.
+   * Get post text and optional comment text from node. Post = main node only (nested articles removed); comments = nested [role="article"].
+   * Returns { combined, postText, commentText }. Detection uses only postText; commentText is not used for lead creation.
    */
   function getPostAndCommentText(node) {
     const nestedArticles = node.querySelectorAll ? node.querySelectorAll('[role="article"]') : [];
@@ -661,7 +660,8 @@
   function countNodesWithText(nodes) {
     var count = 0;
     for (var j = 0; j < nodes.length; j++) {
-      if (isLikelyRealPostText(getPostAndCommentText(nodes[j]).combined)) count++;
+      var postOnly = (getPostAndCommentText(nodes[j]).postText || '').trim();
+      if (isLikelyRealPostText(postOnly)) count++;
     }
     return count;
   }
@@ -686,38 +686,43 @@
     return { nodes: [], selector: 'none' };
   }
 
+  /** Post-only extraction: only original post text is used for validation, dedupe, and preview. Comments are not scanned or used for detection. */
   function extractVisiblePostCandidates() {
     const { nodes, selector } = findBestPostNodes();
     const nodeCount = nodes.length;
     const candidates = [];
-    const seen = new Set(); // avoid duplicate text
+    const seen = new Set();
 
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
-      const { combined: cleaned, postText, commentText } = getPostAndCommentText(node);
-      const len = cleaned.length;
-      const preview = (cleaned.slice(0, 80) || '(empty)') + (cleaned.length > 80 ? '…' : '');
+      const { postText: rawPost } = getPostAndCommentText(node);
+      const postTrimmed = (rawPost != null ? String(rawPost) : '').trim();
+      const len = postTrimmed.length;
+      const preview = (postTrimmed.slice(0, 80) || '(empty)') + (postTrimmed.length > 80 ? '…' : '');
 
-      console.log(PREFIX, 'article', i + 1, '— combined length:', len, 'preview:', preview);
+      console.log(PREFIX, 'article', i + 1, '— post length:', len, 'preview:', preview);
 
-      if (!isLikelyRealPostText(cleaned)) {
+      if (len === 0) {
+        console.log(PREFIX, 'article', i + 1, '— skipped (no post text)');
+        continue;
+      }
+      if (!isLikelyRealPostText(postTrimmed)) {
         console.log(PREFIX, 'article', i + 1, '— skipped (short, UI chrome, or repetitive junk)');
         continue;
       }
-      const key = typeof cleaned === 'string' ? cleaned.slice(0, 200).toLowerCase() : '';
+      const key = postTrimmed.slice(0, 200).toLowerCase();
       if (!key || seen.has(key)) continue;
       seen.add(key);
 
       const postUrl = extractPostUrlFromArticle(node);
       if (postUrl) console.log(PREFIX, 'article', i + 1, '— postUrl:', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
 
-      const textPreview = cleaned.length > MAX_PREVIEW_LEN ? cleaned.slice(0, MAX_PREVIEW_LEN) + '…' : cleaned;
-      console.log(PREFIX, '[text-pipeline] candidate textPreview first80=', textPreview.slice(0, 80));
+      const textPreview = postTrimmed.length > MAX_PREVIEW_LEN ? postTrimmed.slice(0, MAX_PREVIEW_LEN) + '…' : postTrimmed;
+      console.log(PREFIX, '[text-pipeline] candidate textPreview (post-only) first80=', textPreview.slice(0, 80));
       candidates.push({
         textPreview: textPreview,
         postUrl: postUrl || undefined,
-        postText: postText || undefined,
-        commentText: commentText || undefined,
+        postText: postTrimmed || undefined,
       });
     }
     return { candidates, nodeCount, selector };

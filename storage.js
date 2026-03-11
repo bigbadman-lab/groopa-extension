@@ -24,6 +24,8 @@ const DEFAULTS = {
     monitorTabId: null,
     nextTrackedGroupIndex: 0,
     monitorLastRunAt: null,
+    workerTabIds: [],
+    workerCurrentIndices: [],
   },
   telegram: {
     enabled: false,
@@ -35,6 +37,9 @@ const DEFAULTS = {
 };
 
 const MAX_ACTIVITY_LOG_ENTRIES = 100;
+
+/** Maximum number of Facebook groups a user can track. Enforced in storage and UI. */
+const MAX_TRACKED_GROUPS = 30;
 
 function getFromStorageSync(keys) {
   return new Promise((resolve) => {
@@ -88,7 +93,10 @@ async function getSettings() {
     keywords: Array.isArray(rawSync.keywords) ? rawSync.keywords : DEFAULTS.keywords,
     soundEnabled: rawSync.soundEnabled !== false,
     desktopAlertsEnabled: rawSync.desktopAlertsEnabled !== false,
-    trackedGroups: Array.isArray(rawLocal.trackedGroups) ? rawLocal.trackedGroups : DEFAULTS.trackedGroups,
+    trackedGroups: (() => {
+      const a = Array.isArray(rawLocal.trackedGroups) ? rawLocal.trackedGroups : DEFAULTS.trackedGroups;
+      return a.length > MAX_TRACKED_GROUPS ? a.slice(0, MAX_TRACKED_GROUPS) : a;
+    })(),
     detectedGroups: Array.isArray(rawLocal.detectedGroups) ? rawLocal.detectedGroups : DEFAULTS.detectedGroups,
     detections: Array.isArray(rawLocal.detections) ? rawLocal.detections : DEFAULTS.detections,
     activityLog: Array.isArray(rawLocal.activityLog) ? rawLocal.activityLog : DEFAULTS.activityLog,
@@ -127,18 +135,25 @@ async function updateTelegramSettings(partial) {
 }
 
 /**
- * @returns {Promise<object[]>}
+ * @returns {Promise<object[]>} At most MAX_TRACKED_GROUPS. Truncates and persists if overflow stored.
  */
 async function getTrackedGroups() {
   const raw = await getFromStorageLocal(['trackedGroups']);
-  return Array.isArray(raw.trackedGroups) ? raw.trackedGroups : [];
+  const list = Array.isArray(raw.trackedGroups) ? raw.trackedGroups : [];
+  if (list.length > MAX_TRACKED_GROUPS) {
+    const trimmed = list.slice(0, MAX_TRACKED_GROUPS);
+    await setInStorageLocal({ trackedGroups: trimmed });
+    return trimmed;
+  }
+  return list;
 }
 
 /**
  * @param {object[]} trackedGroups
  */
 async function saveTrackedGroups(trackedGroups) {
-  await setInStorageLocal({ trackedGroups: Array.isArray(trackedGroups) ? trackedGroups : [] });
+  const trimmed = Array.isArray(trackedGroups) ? trackedGroups.slice(0, MAX_TRACKED_GROUPS) : [];
+  await setInStorageLocal({ trackedGroups: trimmed });
 }
 
 /**
@@ -163,6 +178,7 @@ async function addTrackedGroup(group) {
   if (!group || (group.id == null && !group.url)) return;
   const list = await getTrackedGroups();
   if (list.some((g) => groupMatches(g, group))) return;
+  if (list.length >= MAX_TRACKED_GROUPS) return;
   list.push({
     id: group.id != null ? String(group.id) : getSlugFromGroupUrl(group.url || ''),
     name: (group.name != null && String(group.name).trim()) ? String(group.name).trim() : '',
@@ -822,23 +838,25 @@ async function setGroupFeedFingerprints(groupKey, fingerprints) {
 
 /**
  * Get Groopa monitor window/tab state (operational, local storage).
- * @returns {Promise<{monitoringEnabled: boolean, monitorWindowId: number|null, monitorTabId: number|null, nextTrackedGroupIndex: number, monitorLastRunAt: string|null}>}
  */
 async function getMonitoringState() {
   const raw = await getFromStorageLocal(['monitoringState']);
   const s = raw.monitoringState != null && typeof raw.monitoringState === 'object' ? raw.monitoringState : {};
+  const workerTabIds = Array.isArray(s.workerTabIds) ? s.workerTabIds.filter((id) => id != null).map(Number) : [];
+  const workerCurrentIndices = Array.isArray(s.workerCurrentIndices) ? s.workerCurrentIndices.map((n) => Math.max(0, parseInt(n, 10) || 0)) : [];
   return {
     monitoringEnabled: s.monitoringEnabled === true,
     monitorWindowId: s.monitorWindowId != null ? Number(s.monitorWindowId) : null,
     monitorTabId: s.monitorTabId != null ? Number(s.monitorTabId) : null,
     nextTrackedGroupIndex: Math.max(0, parseInt(s.nextTrackedGroupIndex, 10) || 0),
     monitorLastRunAt: s.monitorLastRunAt != null && typeof s.monitorLastRunAt === 'string' ? s.monitorLastRunAt : null,
+    workerTabIds,
+    workerCurrentIndices,
   };
 }
 
 /**
  * Update monitoring state (merge partial into current).
- * @param {Partial<{monitoringEnabled: boolean, monitorWindowId: number|null, monitorTabId: number|null, nextTrackedGroupIndex: number, monitorLastRunAt: string|null}>} partial
  */
 async function updateMonitoringState(partial) {
   const current = await getMonitoringState();
