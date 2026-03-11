@@ -24,6 +24,13 @@
 
     <main class="main">
       <section id="panel-monitoring" class="panel panel--active">
+        <!-- Status banner: most prominent panel; state set by JS (--paused | --active | --no-groups) -->
+        <div id="monitor-status-banner" class="monitor-status-banner monitor-status-banner--paused" aria-live="polite">
+          <h2 class="monitor-status-banner-title" id="monitor-status-banner-title">Monitoring</h2>
+          <p class="monitor-status-banner-desc" id="monitor-status-banner-desc">—</p>
+          <p class="monitor-status-banner-meta" id="monitor-meta">—</p>
+        </div>
+
         <div class="monitoring-hero">
           <header class="welcome-header">
             <h2 class="welcome-title">Dashboard</h2>
@@ -32,14 +39,10 @@
               <p class="monitor-validation-title">Add a group before starting</p>
               <p class="monitor-validation-body">Track at least one Facebook group below, then start monitoring.</p>
             </div>
-            <div class="monitor-status-wrap monitor-status-wrap--hero">
-              <p class="monitor-status" id="monitor-status-text">—</p>
-              <p class="monitor-meta" id="monitor-meta">—</p>
-            </div>
             <p class="monitor-window-hint monitor-window-hint--hero" id="monitor-window-hint">Start monitoring to launch the monitor window.</p>
             <div class="hero-actions hero-actions--primary">
-              <button type="button" id="monitor-start-btn" class="btn btn-primary">Start Monitoring</button>
-              <button type="button" id="monitor-stop-btn" class="btn btn-secondary btn-sm">Stop Monitoring</button>
+              <button type="button" id="monitor-start-btn" class="btn btn-primary btn-success">Start Monitoring</button>
+              <button type="button" id="monitor-stop-btn" class="btn btn-danger-secondary btn-sm">Stop Monitoring</button>
               <button type="button" id="monitor-open-window-btn" class="btn btn-secondary btn-sm">Open Monitor Window</button>
               <button type="button" id="open-inbox-btn" class="btn btn-secondary btn-sm">Open Inbox</button>
             </div>
@@ -51,15 +54,15 @@
           <div class="monitoring-hero-stats">
             <div class="summary-bento">
               <div class="summary-card" id="summary-keywords">
-                <span class="summary-card-label">Keywords</span>
+                <span class="summary-card-label">Tracked Keywords</span>
                 <span class="summary-card-count" id="summary-keywords-count">0</span>
               </div>
               <div class="summary-card" id="summary-groups">
-                <span class="summary-card-label">Groups</span>
+                <span class="summary-card-label">Tracked Groups</span>
                 <span class="summary-card-count" id="summary-groups-count">0</span>
               </div>
-              <div class="summary-card summary-card--clickable" id="summary-leads" role="button" tabindex="0" aria-label="Open Inbox">
-                <span class="summary-card-label">Leads</span>
+              <div class="summary-card summary-card--clickable" id="summary-leads" role="button" tabindex="0" aria-label="Open Inbox Leads">
+                <span class="summary-card-label">Inbox Leads</span>
                 <span class="summary-card-count" id="summary-leads-count">0</span>
               </div>
             </div>
@@ -74,10 +77,10 @@
             <button type="button" id="keyword-add-btn" class="btn btn-primary">Add</button>
           </div>
           <div class="keywords-actions">
-            <button type="button" id="keywords-clear-btn" class="btn btn-secondary btn-sm">Clear keywords</button>
+            <button type="button" id="keywords-clear-btn" class="btn btn-danger-secondary btn-sm">Clear keywords</button>
           </div>
           <div id="keywords-list" class="keywords-list"></div>
-          <p id="keywords-empty" class="keywords-empty">No keywords yet. Add one above.</p>
+          <p id="keywords-empty" class="keywords-empty">No keywords yet. Add one above to start matching leads.</p>
           <div id="suggested-keywords-wrap" class="suggested-keywords-wrap" hidden>
             <h4 class="suggested-keywords-title">Suggested keywords</h4>
             <p class="suggested-keywords-hint">Based on your keyword. Add any that match how people ask in your groups.</p>

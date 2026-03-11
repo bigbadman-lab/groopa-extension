@@ -88,16 +88,16 @@ function getExtensionStatus() {
   });
 }
 
-// Simple product-style header: Active | Ready | Inactive + one short subline
+// Header state: display "Monitoring Active" / "Monitoring Paused" + subline (strip styling in CSS)
 function getHeaderState(isPaidUser, trackedCount) {
   const count = typeof trackedCount === 'number' ? trackedCount : 0;
   if (!isPaidUser) {
-    return { status: 'Inactive', statusClass: 'header-status--inactive', subline: 'Enable in Settings' };
+    return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Enable in Settings' };
   }
   if (count > 0) {
-    return { status: 'Active', statusClass: 'header-status--active', subline: 'Tracking ' + count + ' group' + (count === 1 ? '' : 's') };
+    return { status: 'Monitoring Active', stripClass: 'status-strip--active', subline: 'Tracking ' + count + ' group' + (count === 1 ? '' : 's') };
   }
-  return { status: 'Ready', statusClass: 'header-status--ready', subline: 'Add groups in Settings' };
+  return { status: 'Monitoring Paused', stripClass: 'status-strip--paused', subline: 'Add groups in Settings' };
 }
 
 // Load from background (or fallback) and from storage, then render
@@ -115,13 +115,16 @@ async function loadAndRender() {
     ? status.selectedGroupCount
     : trackedGroupsList.length;
 
+  const header = getHeaderState(isPaidUser, trackedCount);
   if (headerStatusEl) {
-    const header = getHeaderState(isPaidUser, trackedCount);
     headerStatusEl.textContent = header.status;
-    headerStatusEl.className = 'header-status ' + header.statusClass;
   }
   if (headerSublineEl) {
-    headerSublineEl.textContent = getHeaderState(isPaidUser, trackedCount).subline;
+    headerSublineEl.textContent = header.subline;
+  }
+  const statusStripEl = document.getElementById('status-strip');
+  if (statusStripEl) {
+    statusStripEl.className = 'status-strip ' + (header.stripClass || 'status-strip--paused');
   }
 
   if (status && !status.error) {

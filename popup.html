@@ -11,29 +11,31 @@
     <header class="header">
       <div class="header-left">
         <h1 class="title">Groopa</h1>
-        <span id="header-status" class="header-status" aria-live="polite">Loading…</span>
       </div>
-      <button id="open-settings" class="btn-icon" title="Open Settings">&#9881;</button>
+      <button type="button" id="open-settings" class="header-settings-link" title="Open Settings" aria-label="Open Settings">Settings</button>
     </header>
-    <p id="header-subline" class="header-subline" aria-live="polite"></p>
+    <div id="status-strip" class="status-strip status-strip--paused" aria-live="polite">
+      <span id="header-status" class="status-strip-label">Loading…</span>
+      <p id="header-subline" class="status-strip-subline"></p>
+    </div>
 
     <div class="kpi-row">
       <div class="kpi-card">
         <span id="count-keywords" class="kpi-value">0</span>
-        <span class="kpi-label">Keywords</span>
+        <span class="kpi-label">Tracked Keywords</span>
       </div>
       <div class="kpi-card">
         <span id="count-groups" class="kpi-value">0</span>
-        <span class="kpi-label">Groups</span>
+        <span class="kpi-label">Tracked Groups</span>
       </div>
       <div class="kpi-card">
         <span id="count-detections" class="kpi-value">0</span>
-        <span class="kpi-label">Leads</span>
+        <span class="kpi-label">Inbox Leads</span>
       </div>
     </div>
 
     <div id="setup-card" class="setup-card" hidden>
-      <p class="setup-card-title">Get started</p>
+      <h2 class="setup-card-title">Get started</h2>
       <p class="setup-card-desc">Configure Groopa in Settings to start receiving leads.</p>
       <ul class="setup-card-steps">
         <li>Add keywords in Settings</li>
@@ -49,7 +51,7 @@
 
     <section id="inbox-section" class="inbox-section">
       <div class="inbox-header">
-        <h2 class="inbox-heading">Recent leads</h2>
+        <h2 class="inbox-heading">Recent Leads</h2>
         <button type="button" id="inbox-open-settings" class="btn-link">Open Settings</button>
       </div>
       <p class="inbox-subtitle">Your latest alerts from tracked groups</p>

@@ -38,7 +38,9 @@ const addGroupCancelBtn = document.getElementById('add-group-cancel');
 const accountPlanEl = document.getElementById('account-plan');
 const accountVersionEl = document.getElementById('account-version');
 const sidebarVersionEl = document.getElementById('sidebar-version');
-const monitorStatusText = document.getElementById('monitor-status-text');
+const monitorStatusBanner = document.getElementById('monitor-status-banner');
+const monitorStatusBannerTitle = document.getElementById('monitor-status-banner-title');
+const monitorStatusBannerDesc = document.getElementById('monitor-status-banner-desc');
 const monitorMeta = document.getElementById('monitor-meta');
 const monitorStartBtn = document.getElementById('monitor-start-btn');
 const monitorStopBtn = document.getElementById('monitor-stop-btn');
@@ -289,13 +291,32 @@ function renderMonitorStatus(settings) {
   const mon = settings.monitoringState != null ? settings.monitoringState : {};
   const enabled = mon.monitoringEnabled === true;
 
-  if (monitorStatusText) {
+  if (monitorStatusBanner) {
+    monitorStatusBanner.classList.remove('monitor-status-banner--no-groups', 'monitor-status-banner--paused', 'monitor-status-banner--active');
     if (count === 0) {
-      monitorStatusText.textContent = 'No tracked groups';
+      monitorStatusBanner.classList.add('monitor-status-banner--no-groups');
     } else if (enabled) {
-      monitorStatusText.textContent = 'Active';
+      monitorStatusBanner.classList.add('monitor-status-banner--active');
     } else {
-      monitorStatusText.textContent = 'Paused';
+      monitorStatusBanner.classList.add('monitor-status-banner--paused');
+    }
+  }
+  if (monitorStatusBannerTitle) {
+    if (count === 0) {
+      monitorStatusBannerTitle.textContent = 'No tracked groups';
+    } else if (enabled) {
+      monitorStatusBannerTitle.textContent = 'Monitoring Active';
+    } else {
+      monitorStatusBannerTitle.textContent = 'Monitoring Paused';
+    }
+  }
+  if (monitorStatusBannerDesc) {
+    if (count === 0) {
+      monitorStatusBannerDesc.textContent = 'Track at least one Facebook group below to start monitoring.';
+    } else if (enabled) {
+      monitorStatusBannerDesc.textContent = 'Groopa is scanning your tracked groups for new leads.';
+    } else {
+      monitorStatusBannerDesc.textContent = 'Groopa is not scanning groups right now. Start monitoring to run.';
     }
   }
 
@@ -589,9 +610,12 @@ function renderDetectedGroups() {
             <div class="group-url"><a href="${escapeOpt(g.url || '#')}" target="_blank" rel="noopener">${escapeOpt(g.url || '')}</a></div>
             <div class="group-meta">Source: ${escapeOpt(g.source || '—')} · Last seen: ${formatOptDate(g.lastSeenAt)}</div>
           </div>
-          <div class="track-option">
-            <input type="checkbox" id="track-${index}" ${tracked ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" aria-hidden="true" tabindex="-1" />
-            <span class="track-option-label">Track</span>
+          <div class="group-row-actions">
+            ${tracked ? '<span class="group-row-badge">Tracking</span>' : ''}
+            <div class="track-option">
+              <input type="checkbox" id="track-${index}" ${tracked ? 'checked' : ''} data-id="${escapeOpt(g.id)}" data-name="${escapeOpt(g.name || '')}" data-url="${escapeOpt(g.url || '')}" aria-hidden="true" tabindex="-1" />
+              <span class="track-option-label">Track</span>
+            </div>
           </div>
         </div>`;
       }
