@@ -1,8 +1,87 @@
 // Groopa background service worker (Manifest V3)
 importScripts('storage.js');
 
+/** Escape special regex chars so keyword can be used in RegExp safely. */
+function escapeRegex(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Simple variants for single-word keywords (e.g. plumber → plumbers, plumbing).
+ * Used only for word-boundary matching; returns normalized forms to search for.
+ */
+function getKeywordVariants(normalizedWord) {
+  if (!normalizedWord || typeof normalizedWord !== 'string') return [];
+  const w = normalizedWord.trim().toLowerCase();
+  if (w.length < 2) return [w];
+  const out = [w];
+  // er → ers, ing (plumber → plumbers, plumbing)
+  if (w.length > 2 && w.slice(-2) === 'er') {
+    const stem = w.slice(0, -2);
+    if (stem.length >= 2) {
+      out.push(w + 's');
+      out.push(stem + 'ing');
+    }
+  }
+  // ing → er, ers (plumbing → plumber, plumbers)
+  if (w.length > 3 && w.slice(-3) === 'ing') {
+    const stem = w.slice(0, -3);
+    if (stem.length >= 2) {
+      out.push(stem + 'er');
+      out.push(stem + 'ers');
+    }
+  }
+  // trailing s → singular (plumbers → plumber)
+  if (w.length > 2 && w.slice(-1) === 's' && w.slice(-3) !== 'ers') {
+    const singular = w.slice(0, -1);
+    if (singular.length >= 2) out.push(singular);
+  }
+  return [...new Set(out)];
+}
+
+/** True if normalized text matches this keyword (word-boundary or phrase, with variants). */
+function keywordMatchesText(normalizedText, kw) {
+  if (!normalizedText || !kw) return false;
+  const normalizedKw = normalizeTextForKeywordMatch(kw);
+  if (!normalizedKw) return false;
+  const words = normalizedKw.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    const variantForms = getKeywordVariants(normalizedKw);
+    for (let v = 0; v < variantForms.length; v++) {
+      const form = variantForms[v];
+      if (!form) continue;
+      try {
+        if (new RegExp('\\b' + escapeRegex(form) + '\\b').test(normalizedText)) return true;
+      } catch (_) {
+        if (normalizedText.indexOf(form) !== -1) return true;
+      }
+    }
+    return false;
+  }
+  return normalizedText.indexOf(normalizedKw) !== -1;
+}
+
+/**
+ * Keyword detection v1: full-text match with word-boundary (single-word), phrase (multi-word), and variants.
+ * Returns original stored keyword strings so storage, dedupe, and UI are unchanged.
+ */
+function getMatchingKeywordsV1(fullText, keywords) {
+  if (!fullText || typeof fullText !== 'string') return [];
+  if (!Array.isArray(keywords) || keywords.length === 0) return [];
+  const normalizedText = normalizeTextForKeywordMatch(fullText);
+  if (!normalizedText) return [];
+  const matched = [];
+  for (let i = 0; i < keywords.length; i++) {
+    const kw = (keywords[i] != null && typeof keywords[i] === 'string') ? keywords[i].trim() : '';
+    if (kw.length === 0) continue;
+    if (keywordMatchesText(normalizedText, kw)) matched.push(kw);
+  }
+  return matched;
+}
+
 /**
  * Returns which keywords appear in the normalized text. Uses same normalizer as fingerprint for consistency.
+ * @deprecated Prefer getMatchingKeywordsV1 for new matching (full text, word-boundary, variants).
  */
 function getMatchingKeywords(normalizedText, keywords) {
   if (!normalizedText || !Array.isArray(keywords)) return [];
@@ -610,14 +689,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const now = new Date().toISOString();
         const newDetections = [];
 
+        const MAX_FULL_TEXT_LEN = 10000;
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
+          const postText = (c && c.postText != null) ? String(c.postText) : '';
+          const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
+          const fullTextRaw = [postText, commentText].filter(Boolean).join(' ').trim();
+          const fullText = fullTextRaw.length > 0 ? fullTextRaw.slice(0, MAX_FULL_TEXT_LEN) : textPreview;
           if (i === 0 && textPreview.length > 0) {
             console.log('[Groopa] [text-pipeline] background received textPreview first80=', textPreview.slice(0, 80));
           }
-          const normalized = normalizeTextForFingerprint(textPreview);
-          const matchedKeywords = getMatchingKeywords(normalized, keywords);
+          const matchedKeywords = getMatchingKeywordsV1(fullText, keywords);
           if (matchedKeywords.length === 0) continue;
 
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
@@ -630,13 +713,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             matchedKeywords: matchedKeywords,
           });
           let matchSource = 'post';
-          const postText = (c && c.postText != null) ? String(c.postText) : '';
-          const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
           if (postText || commentText) {
-            const normPost = normalizeTextForFingerprint(postText);
-            const normComment = normalizeTextForFingerprint(commentText);
-            const inPost = matchedKeywords.some((kw) => normPost.indexOf(normalizeTextForFingerprint(kw)) !== -1);
-            const inComment = matchedKeywords.some((kw) => normComment.indexOf(normalizeTextForFingerprint(kw)) !== -1);
+            const normPost = normalizeTextForKeywordMatch(postText);
+            const normComment = normalizeTextForKeywordMatch(commentText);
+            const inPost = matchedKeywords.some((kw) => keywordMatchesText(normPost, kw));
+            const inComment = matchedKeywords.some((kw) => keywordMatchesText(normComment, kw));
             matchSource = inPost && inComment ? 'both' : inComment ? 'comment' : 'post';
           }
           newDetections.push({

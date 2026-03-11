@@ -524,6 +524,21 @@ function normalizeTextForFingerprint(text) {
     .toLowerCase();
 }
 
+/**
+ * Normalization for keyword matching only: lowercase, punctuation to space, collapse whitespace.
+ * Enables word-boundary and phrase matching on a consistent form. Does not change fingerprint.
+ */
+function normalizeTextForKeywordMatch(text) {
+  if (text == null || typeof text !== 'string') return '';
+  return String(text)
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const FINGERPRINT_PREVIEW_LEN = 200;
 
 /**
