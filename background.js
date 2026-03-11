@@ -692,9 +692,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const now = new Date().toISOString();
         const newDetections = [];
 
+        const existingDetections = await getDetections();
+        const existingPostUrls = new Set();
+        for (let j = 0; j < existingDetections.length; j++) {
+          const d = existingDetections[j];
+          if (d && d.postUrl) {
+            const n = normalizePostUrl(d.postUrl);
+            if (n) existingPostUrls.add(n.toLowerCase());
+          }
+        }
+        const seenPostUrlsThisBatch = new Set();
+
         const MAX_FULL_TEXT_LEN = 10000;
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
+          const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
+          const postUrlNorm = postUrl ? normalizePostUrl(postUrl).toLowerCase() : '';
+          if (postUrlNorm && (existingPostUrls.has(postUrlNorm) || seenPostUrlsThisBatch.has(postUrlNorm))) {
+            continue;
+          }
+
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
           const postText = (c && c.postText != null) ? String(c.postText) : '';
           const commentText = (c && c.commentText != null) ? String(c.commentText) : '';
@@ -707,7 +724,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords);
           if (matchedKeywords.length === 0) continue;
 
-          const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
+          if (postUrlNorm) seenPostUrlsThisBatch.add(postUrlNorm);
           const fingerprint = buildDetectionFingerprint({
             postUrl: postUrl,
             groupId: groupIdentifier,
