@@ -33,7 +33,19 @@ body {
   margin-bottom: 16px;
 }
 
-.sidebar-title {
+.sidebar-brand .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-brand .brand-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.sidebar-brand .brand-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
