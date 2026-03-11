@@ -672,7 +672,7 @@
     return { nodes: [], selector: 'none' };
   }
 
-  /** Post-only extraction. Comments are not scanned or used. */
+  /** Post-only extraction. Comments are not scanned or used. Only top-level articles with a post permalink become candidates. */
   function extractVisiblePostCandidates() {
     const { nodes, selector } = findBestPostNodes();
     const nodeCount = nodes.length;
@@ -681,6 +681,11 @@
 
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
+      // On Facebook, comments also use role="article". Skip any article nested inside another so only top-level feed posts become candidates.
+      if (node.closest && node.closest('[role="article"]') !== node) continue;
+      // Require a post permalink (/groups/.../posts/...) so we never treat comment-only nodes as leads.
+      if (!node.querySelector || !node.querySelector('a[href*="/posts/"]')) continue;
+
       const postTrimmed = getPostTextOnly(node);
       const len = postTrimmed.length;
       const preview = (postTrimmed.slice(0, 80) || '(empty)') + (postTrimmed.length > 80 ? '…' : '');
