@@ -557,7 +557,8 @@ function normalizeTextForKeywordMatch(text) {
 const FINGERPRINT_PREVIEW_LEN = 200;
 
 /**
- * Normalize a post/permalink URL for stable identity (strip hash, one canonical form).
+ * Normalize a post/permalink URL for stable identity.
+ * For group posts: https://www.facebook.com/groups/<groupId>/posts/<postId>/ (query and fragment removed).
  * @param {string} url
  * @returns {string}
  */
@@ -565,7 +566,13 @@ function normalizePostUrl(url) {
   if (!url || typeof url !== 'string') return '';
   try {
     const u = new URL(url.trim());
+    const path = u.pathname || '';
+    const match = path.match(/\/groups\/([^/]+)\/posts\/([^/?#]+)/);
+    if (match) {
+      return 'https://www.facebook.com/groups/' + match[1] + '/posts/' + match[2] + '/';
+    }
     u.hash = '';
+    u.search = '';
     return u.href;
   } catch (_) {
     return '';

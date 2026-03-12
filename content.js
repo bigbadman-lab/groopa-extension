@@ -634,11 +634,36 @@
     return postText;
   }
 
+  function isCommentDeepLink(url) {
+    if (!url || typeof url !== 'string') return false;
+    const s = url.toLowerCase();
+    return s.indexOf('comment_id=') !== -1 || s.indexOf('reply_comment_id=') !== -1 || s.indexOf('/comment/') !== -1;
+  }
+
+  /**
+   * Canonical post URL: https://www.facebook.com/groups/<groupId>/posts/<postId>/ with query and fragment removed.
+   * Returns '' if not a group post URL.
+   */
+  function canonicalizePostUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+      const u = new URL(url.trim());
+      const path = u.pathname || '';
+      const match = path.match(/\/groups\/([^/]+)\/posts\/([^/?#]+)/);
+      if (match) {
+        return 'https://www.facebook.com/groups/' + match[1] + '/posts/' + match[2] + '/';
+      }
+      u.search = '';
+      u.hash = '';
+      return u.href;
+    } catch (_) {
+      return '';
+    }
+  }
+
   /**
    * Try to find a post permalink inside an article (timestamp/post-detail link).
-   * Prefers links with /posts/, /permalink/, or story_fbid; otherwise first facebook.com link that looks like a post.
-   * @param {Element} article
-   * @returns {string} absolute URL or ''
+   * Ignores comment deep links (comment_id=, reply_comment_id=, /comment/). Returns canonical URL or ''.
    */
   function extractPostUrlFromArticle(article) {
     if (!article || !article.querySelectorAll) return '';
@@ -655,6 +680,7 @@
         continue;
       }
       if (abs.indexOf('facebook.com') === -1) continue;
+      if (isCommentDeepLink(abs)) continue;
       const lower = abs.toLowerCase();
       if (lower.indexOf('/posts/') !== -1 || lower.indexOf('/permalink') !== -1 || lower.indexOf('story_fbid') !== -1) {
         best = abs;
@@ -668,13 +694,8 @@
     }
     const chosen = best || fallback;
     if (!chosen) return '';
-    try {
-      const u = new URL(chosen);
-      u.hash = '';
-      return u.href;
-    } catch (_) {
-      return chosen;
-    }
+    if (isCommentDeepLink(chosen)) return '';
+    return canonicalizePostUrl(chosen);
   }
 
   function countNodesWithText(nodes) {
@@ -749,7 +770,13 @@
       seen.add(key);
 
       const postUrl = extractPostUrlFromArticle(node);
-      if (postUrl) console.log(PREFIX, 'article', i + 1, '— postUrl:', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
+      if (!postUrl) {
+        logRejectedNode('comment deep link or no permalink', '', postTrimmed.slice(0, 120));
+        continue;
+      }
+      if (DEBUG_POST_ONLY_VALIDATION) {
+        console.log(PREFIX, 'article', i + 1, '— postUrl (canonical):', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
+      }
 
       const textPreview = postTrimmed.length > MAX_PREVIEW_LEN ? postTrimmed.slice(0, MAX_PREVIEW_LEN) + '…' : postTrimmed;
       if (DEBUG_POST_ONLY_VALIDATION) {

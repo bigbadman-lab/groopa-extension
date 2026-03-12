@@ -6,9 +6,22 @@ const DEBUG_POST_ONLY_VALIDATION = true;
 
 function logRejectedCandidate(c, reason) {
   if (!DEBUG_POST_ONLY_VALIDATION) return;
-  const postUrl = (c && c.postUrl != null) ? String(c.postUrl).trim() : '';
+  const rawUrl = (c && c.postUrl != null) ? String(c.postUrl).trim() : '';
+  const normUrl = rawUrl ? normalizePostUrl(rawUrl) : '';
   const postText120 = (c && c.postText != null) ? String(c.postText).trim().slice(0, 120) : '';
-  console.log('[Groopa] [rejected] reason=' + reason + ' | postUrl=' + (postUrl || '(none)') + ' | postText120=' + (postText120 || '(empty)'));
+  const normPart = normUrl && normUrl !== rawUrl ? ' | normUrl=' + normUrl : '';
+  console.log('[Groopa] [rejected] reason=' + reason + ' | rawUrl=' + (rawUrl || '(none)') + normPart + ' | postText120=' + (postText120 || '(empty)'));
+}
+
+function isCommentDeepLinkUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const s = url.toLowerCase();
+  return s.indexOf('comment_id=') !== -1 || s.indexOf('reply_comment_id=') !== -1;
+}
+
+function isCommentShapedText(text) {
+  if (!text || typeof text !== 'string') return false;
+  return /\s+Like\s+Reply(\s+Share)?\s*$/i.test(text.trim());
 }
 
 /** Escape special regex chars so keyword can be used in RegExp safely. */
@@ -750,6 +763,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
+          if (postUrl && isCommentDeepLinkUrl(postUrl)) {
+            logRejectedCandidate(c, 'comment deep link (guard)');
+            continue;
+          }
           const postUrlNorm = postUrl ? normalizePostUrl(postUrl).toLowerCase() : '';
           if (postUrlNorm && (existingPostUrls.has(postUrlNorm) || seenPostUrlsThisBatch.has(postUrlNorm))) {
             logRejectedCandidate(c, 'duplicate postUrl');
@@ -762,6 +779,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const matchText = (postText != null ? String(postText) : '').trim();
           if (matchText.length === 0) {
             logRejectedCandidate(c, 'no postText');
+            continue;
+          }
+          if (isCommentShapedText(matchText)) {
+            logRejectedCandidate(c, 'comment-shaped text');
             continue;
           }
           const textForMatch = matchText.length > MAX_FULL_TEXT_LEN ? matchText.slice(0, MAX_FULL_TEXT_LEN) : matchText;
