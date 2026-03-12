@@ -1,6 +1,16 @@
 // Groopa background service worker (Manifest V3)
 importScripts('storage.js');
 
+/** Set to false to disable rejection-diagnostics logs (post-only validation). */
+const DEBUG_POST_ONLY_VALIDATION = true;
+
+function logRejectedCandidate(c, reason) {
+  if (!DEBUG_POST_ONLY_VALIDATION) return;
+  const postUrl = (c && c.postUrl != null) ? String(c.postUrl).trim() : '';
+  const postText120 = (c && c.postText != null) ? String(c.postText).trim().slice(0, 120) : '';
+  console.log('[Groopa] [rejected] reason=' + reason + ' | postUrl=' + (postUrl || '(none)') + ' | postText120=' + (postText120 || '(empty)'));
+}
+
 /** Escape special regex chars so keyword can be used in RegExp safely. */
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -736,26 +746,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const seenPostUrlsThisBatch = new Set();
 
         const MAX_FULL_TEXT_LEN = 10000;
-        /* Matching and lead creation use only original post text; comment content is never used. */
+        /* Matching and lead creation use only original post text; comment content is never used. No fallback to textPreview for matching. */
         for (let i = 0; i < list.length; i++) {
           const c = list[i];
           const postUrl = (c && c.postUrl && String(c.postUrl).trim()) ? String(c.postUrl).trim() : undefined;
           const postUrlNorm = postUrl ? normalizePostUrl(postUrl).toLowerCase() : '';
           if (postUrlNorm && (existingPostUrls.has(postUrlNorm) || seenPostUrlsThisBatch.has(postUrlNorm))) {
+            logRejectedCandidate(c, 'duplicate postUrl');
             continue;
           }
 
           const textPreview = (c && c.textPreview != null) ? String(c.textPreview) : '';
           const postText = (c && c.postText != null) ? String(c.postText) : '';
-          const matchText = postText.trim();
-          if (matchText.length === 0) continue;
-          const textForMatch = matchText.length > MAX_FULL_TEXT_LEN ? matchText.slice(0, MAX_FULL_TEXT_LEN) : matchText;
-          if (i === 0) {
-            console.log('[Groopa] [text-pipeline] background matching on postText first80=', textForMatch.slice(0, 80));
-          }
-          const matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords);
-          if (matchedKeywords.length === 0) continue;
 
+          const matchText = (postText != null ? String(postText) : '').trim();
+          if (matchText.length === 0) {
+            logRejectedCandidate(c, 'no postText');
+            continue;
+          }
+          const textForMatch = matchText.length > MAX_FULL_TEXT_LEN ? matchText.slice(0, MAX_FULL_TEXT_LEN) : matchText;
+          const matchedKeywords = getMatchingKeywordsV1(textForMatch, keywords);
+          if (matchedKeywords.length === 0) {
+            logRejectedCandidate(c, 'no keyword match in postText');
+            continue;
+          }
+
+          if (DEBUG_POST_ONLY_VALIDATION) {
+            console.log('[Groopa] [text-pipeline] matched keyword=', matchedKeywords[0] || matchedKeywords.join(','), '| matchSource: post (postText only)');
+          }
           if (postUrlNorm) seenPostUrlsThisBatch.add(postUrlNorm);
           const fingerprint = buildDetectionFingerprint({
             postUrl: postUrl,

@@ -511,6 +511,13 @@
   const MAX_PREVIEW_LEN = 150;
   const MAX_CANDIDATES = 10;
   const MIN_TEXT_LEN = 25; // filter out empty or very short text
+  /** Set to false to disable rejection-diagnostics logs (post-only validation). */
+  const DEBUG_POST_ONLY_VALIDATION = true;
+
+  function logRejectedNode(reason, postUrl, postText120) {
+    if (!DEBUG_POST_ONLY_VALIDATION) return;
+    console.log(PREFIX, '[rejected] reason=' + reason + ' | postUrl=' + (postUrl || '(none)') + ' | postText120=' + (postText120 || '(empty)'));
+  }
   const MIN_UNIQUENESS = 0.4; // unique words / total words (filters "Facebook Facebook Facebook")
   // Scheduled scans so we catch the feed after it renders (2s, 5s, 10s, 20s)
   const RETRY_DELAYS_MS = [2000, 5000, 10000, 20000];
@@ -578,9 +585,28 @@
     return out;
   }
 
+  /** UI phrases to strip from post body (comment prompts, action row labels). Avoid single words that could appear in post body. */
+  var POST_BODY_UI_PHRASES = [
+    'write a comment', 'view more comments', 'view previous comments', 'view more replies',
+    'like · comment · share', 'comment · share', 'most relevant', 'newest', 'full comment thread',
+  ];
+
+  function stripPostBodyUIChrome(text) {
+    if (!text || typeof text !== 'string') return '';
+    var out = text.trim().replace(/\s+/g, ' ');
+    for (var j = 0; j < POST_BODY_UI_PHRASES.length; j++) {
+      var phrase = POST_BODY_UI_PHRASES[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var re = new RegExp('\\b' + phrase.replace(/\s+/g, '\\s+') + '\\b', 'gi');
+      out = out.replace(re, '');
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }
+
   /**
-   * Get post-only text by cloning the node and removing nested [role="article"] (comments/replies)
-   * so their text is not included in the post portion.
+   * Get post-only text by cloning the node and removing:
+   * - Nested [role="article"] (comments/replies)
+   * - [role="button"] (Like / Comment / Share / Reply)
+   * - Common comment/action UI text lines (Write a comment, View more comments, etc.)
    */
   function getPostOnlyText(node) {
     if (!node || !node.cloneNode) return getTextFromNode(node);
@@ -589,16 +615,23 @@
     for (let i = 0; i < nested.length; i++) {
       if (nested[i] && nested[i].parentNode) nested[i].parentNode.removeChild(nested[i]);
     }
-    return getTextFromNode(clone);
+    const buttons = clone.querySelectorAll ? Array.from(clone.querySelectorAll('[role="button"]')) : [];
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i] && buttons[i].parentNode) buttons[i].parentNode.removeChild(buttons[i]);
+    }
+    const raw = getTextFromNode(clone);
+    return stripPostBodyUIChrome(raw);
   }
 
   /**
-   * Get original post text only. Nested [role="article"] (comments/replies) are excluded. Used for all detection and previews.
+   * Get original post text only. Nested [role="article"] (comments/replies) and action UI are excluded. Used for all detection and previews.
    */
   function getPostTextOnly(node) {
     const nestedArticles = node.querySelectorAll ? node.querySelectorAll('[role="article"]') : [];
-    const postText = nestedArticles.length > 0 ? getPostOnlyText(node) : getTextFromNode(node);
-    return (postText != null ? String(postText) : '').trim();
+    let postText = nestedArticles.length > 0 ? getPostOnlyText(node) : getTextFromNode(node);
+    postText = (postText != null ? String(postText) : '').trim();
+    if (postText && nestedArticles.length === 0) postText = stripPostBodyUIChrome(postText);
+    return postText;
   }
 
   /**
@@ -682,33 +715,46 @@
     for (let i = 0; i < nodeCount && candidates.length < MAX_CANDIDATES; i++) {
       const node = nodes[i];
       // On Facebook, comments also use role="article". Skip any article nested inside another so only top-level feed posts become candidates.
-      if (node.closest && node.closest('[role="article"]') !== node) continue;
+      if (node.closest && node.closest('[role="article"]') !== node) {
+        logRejectedNode('nested article', '', '(skipped before extraction)');
+        continue;
+      }
       // Require a post permalink (/groups/.../posts/...) so we never treat comment-only nodes as leads.
-      if (!node.querySelector || !node.querySelector('a[href*="/posts/"]')) continue;
+      if (!node.querySelector || !node.querySelector('a[href*="/posts/"]')) {
+        logRejectedNode('no post permalink', '', '(skipped before extraction)');
+        continue;
+      }
 
       const postTrimmed = getPostTextOnly(node);
       const len = postTrimmed.length;
       const preview = (postTrimmed.slice(0, 80) || '(empty)') + (postTrimmed.length > 80 ? '…' : '');
 
-      console.log(PREFIX, 'article', i + 1, '— post length:', len, 'preview:', preview);
+      if (DEBUG_POST_ONLY_VALIDATION) {
+        console.log(PREFIX, 'article', i + 1, '— post length:', len, 'preview:', preview);
+      }
 
       if (len === 0) {
-        console.log(PREFIX, 'article', i + 1, '— skipped (no post text)');
+        logRejectedNode('no postText', extractPostUrlFromArticle(node), '(empty)');
         continue;
       }
       if (!isLikelyRealPostText(postTrimmed)) {
-        console.log(PREFIX, 'article', i + 1, '— skipped (short, UI chrome, or repetitive junk)');
+        logRejectedNode('short or UI chrome or repetitive junk', extractPostUrlFromArticle(node), postTrimmed.slice(0, 120));
         continue;
       }
       const key = postTrimmed.slice(0, 200).toLowerCase();
-      if (!key || seen.has(key)) continue;
+      if (!key || seen.has(key)) {
+        logRejectedNode('duplicate key', extractPostUrlFromArticle(node), postTrimmed.slice(0, 120));
+        continue;
+      }
       seen.add(key);
 
       const postUrl = extractPostUrlFromArticle(node);
       if (postUrl) console.log(PREFIX, 'article', i + 1, '— postUrl:', postUrl.slice(0, 80) + (postUrl.length > 80 ? '…' : ''));
 
       const textPreview = postTrimmed.length > MAX_PREVIEW_LEN ? postTrimmed.slice(0, MAX_PREVIEW_LEN) + '…' : postTrimmed;
-      console.log(PREFIX, '[text-pipeline] candidate textPreview (post-only) first80=', textPreview.slice(0, 80));
+      if (DEBUG_POST_ONLY_VALIDATION) {
+        console.log(PREFIX, '[text-pipeline] candidate postText first80=', postTrimmed.slice(0, 80), '| source: post-only');
+      }
       candidates.push({
         textPreview: textPreview,
         postUrl: postUrl || undefined,
